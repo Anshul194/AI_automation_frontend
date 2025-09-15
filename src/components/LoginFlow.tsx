@@ -192,27 +192,6 @@ export function LoginFlow() {
   if (step === 'integrations') {
     return (
       <div className="min-h-screen flex justify-center items-center bg-dark-bg">
-        {/* Progress Header */}
-        <div className="bg-dark-card border-b border-dark-border">
-          <div className="max-w-4xl mx-auto px-6 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h1 className="font-bold text-dark-primary">DataFlow AI</h1>
-                  <p className="text-xs text-dark-secondary">Step 2 of 3</p>
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <div className="w-3 h-3 rounded-full bg-dark-positive"></div>
-                <div className="w-3 h-3 rounded-full bg-dark-cta"></div>
-                <div className="w-3 h-3 rounded-full bg-dark-tag"></div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Main Content */}
         <div className="max-w-4xl mx-auto px-6 py-12">
@@ -226,8 +205,8 @@ export function LoginFlow() {
           {/* Integration Grid */}
           <div className="space-y-6 mb-12">
             {/* Shopify */}
-            <div className="bg-dark-card border border-dark-border rounded-2xl p-8 hover:border-dark-border/80 transition-colors">
-              <div className="flex items-center justify-between">
+            <div className="bg-dark-card border border-dark-border rounded-2xl p-4 md:p-8 hover:border-dark-border/80 transition-colors">
+              <div className="flex items-start gap-8 md:flex-row md:items-center flex-col justify-between">
                 <div className="flex items-center space-x-6">
                   <div className="w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center">
                     <ShoppingBag className="w-8 h-8 text-white" />
@@ -256,7 +235,7 @@ export function LoginFlow() {
                   )}
                   <button
                     onClick={() => toggleConnection('shopify')}
-                    className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                    className={`px-3 py-2 rounded-full font-medium transition-all ${
                       connections.shopify
                         ? 'bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border'
                         : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
@@ -269,8 +248,8 @@ export function LoginFlow() {
             </div>
 
             {/* Meta Ads */}
-            <div className="bg-dark-card border border-dark-border rounded-2xl p-8 hover:border-dark-border/80 transition-colors">
-              <div className="flex items-center justify-between">
+            <div className="bg-dark-card border border-dark-border rounded-2xl p-4 md:p-8 hover:border-dark-border/80 transition-colors">
+              <div className="flex items-start gap-8 md:flex-row md:items-center flex-col justify-between">
                 <div className="flex items-center space-x-6">
                   <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center">
                     <Facebook className="w-8 h-8 text-white" />
@@ -299,7 +278,7 @@ export function LoginFlow() {
                   )}
                   <button
                     onClick={() => toggleConnection('meta')}
-                    className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                    className={`px-3 py-2 rounded-full  font-medium transition-all ${
                       connections.meta
                         ? 'bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border'
                         : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
@@ -312,8 +291,8 @@ export function LoginFlow() {
             </div>
 
             {/* Google Analytics */}
-            <div className="bg-dark-card border border-dark-border rounded-2xl p-8 hover:border-dark-border/80 transition-colors">
-              <div className="flex items-center justify-between">
+            <div className="bg-dark-card border border-dark-border rounded-2xl p-4 md:p-8 hover:border-dark-border/80 transition-colors">
+              <div className="flex items-start gap-8 md:flex-row md:items-center flex-col justify-between">
                 <div className="flex items-center space-x-6">
                   <div className="w-16 h-16 bg-orange-600 rounded-2xl flex items-center justify-center">
                     <BarChart3 className="w-8 h-8 text-white" />
@@ -342,7 +321,7 @@ export function LoginFlow() {
                   )}
                   <button
                     onClick={() => toggleConnection('analytics')}
-                    className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                    className={`px-3 py-2 rounded-full font-medium transition-all ${
                       connections.analytics
                         ? 'bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border'
                         : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
