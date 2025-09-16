@@ -10,7 +10,7 @@ function Avatar({
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Root>) {
   return (
-    <AvatarPrimitive.Root#
+    <AvatarPrimitive.Root
       data-slot="avatar"
       className={cn(
         "relative flex size-10 shrink-0 overflow-hidden rounded-full",
@@ -38,9 +38,6 @@ function AvatarFallback({
   className,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
-  // Import the User icon from lucide-react
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { User } = require("lucide-react");
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
@@ -49,9 +46,7 @@ function AvatarFallback({
         className,
       )}
       {...props}
-    >
-      <User className="w-5 h-5 text-muted-foreground" />
-    </AvatarPrimitive.Fallback>
+    />
   );
 }
 
