@@ -1,5 +1,7 @@
 import { Button } from "./ui/button";
 import { useEffect, useState } from "react";
+import { User } from "lucide-react";
+import { useRef } from "react";
 import { Avatar } from "./ui/avatar";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -17,6 +19,29 @@ import {
 
 export function LandingPage({ onLogin }: { onLogin: () => void }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
+    const profileRef = useRef<HTMLDivElement>(null);
+
+    // Get user info from localStorage
+    let user = null;
+    try {
+      user = JSON.parse(localStorage.getItem("user") || "null");
+    } catch {}
+
+    // Hide dropdown on outside click
+    useEffect(() => {
+      function handleClick(e: MouseEvent) {
+        if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+          setShowProfile(false);
+        }
+      }
+      if (showProfile) {
+        document.addEventListener("mousedown", handleClick);
+      } else {
+        document.removeEventListener("mousedown", handleClick);
+      }
+      return () => document.removeEventListener("mousedown", handleClick);
+    }, [showProfile]);
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem("accessToken"));
     window.addEventListener("storage", () => {
@@ -116,7 +141,21 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
             <a href="#pricing" className="text-dark-secondary hover:text-dark-primary transition-colors">Pricing</a>
             <a href="#testimonials" className="text-dark-secondary hover:text-dark-primary transition-colors">Reviews</a>
             {isLoggedIn ? (
-              <Avatar className="ml-4" />
+                <div className="relative ml-4" ref={profileRef}>
+                  <button
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-dark-hover hover:bg-dark-border border border-dark-border transition-colors"
+                    onClick={() => setShowProfile((v) => !v)}
+                    aria-label="Profile"
+                  >
+                    <User className="w-6 h-6 text-dark-primary" />
+                  </button>
+                  {showProfile && (
+                    <div className="absolute right-0 mt-2 w-56 bg-dark-card border border-dark-border rounded-xl shadow-lg p-4 z-50">
+                      <div className="mb-2 font-semibold text-dark-primary">{user?.name || "User"}</div>
+                      <div className="text-sm text-dark-secondary break-all">{user?.email || "No email"}</div>
+                    </div>
+                  )}
+                </div>
             ) : (
               <Button 
                 onClick={onLogin}
