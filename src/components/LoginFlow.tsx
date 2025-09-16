@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useAppDispatch } from "../store/hooks";
+import { loginUser } from "../store/slices/authSlice";
+import { login } from "../store/slices/authSlice";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -21,6 +24,8 @@ import {
 type LoginStep = 'login' | 'integrations' | 'analyzing';
 
 export function LoginFlow({ onComplete }: { onComplete: () => void }) {
+
+  const dispatch = useAppDispatch();
   const [step, setStep] = useState<LoginStep>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,9 +35,21 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
     analytics: false
   });
   const [progress, setProgress] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = () => {
-    setStep('integrations');
+  const handleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await loginUser(email, password);
+      dispatch(login({ user: data.user, token: data.token }));
+      setStep('integrations');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -120,10 +137,15 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                 onClick={handleLogin}
                 className="w-full dark-button-primary"
                 size="lg"
+                disabled={loading}
               >
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Sign In
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
+              {error && (
+                <div className="text-red-500 text-sm text-center mt-2">{error}</div>
+              )}
             </div>
 
             <div className="text-center text-sm">
