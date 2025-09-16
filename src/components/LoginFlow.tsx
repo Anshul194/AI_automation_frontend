@@ -50,7 +50,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
     setError(null);
     try {
       const data = await loginUser(email, password);
-      dispatch(login({ user: data.user, token: data.token }));
+      console.log(data);
+      if (data && data?.data?.accessToken && data?.data?.refreshToken && data?.data?.user) {
+        localStorage.setItem("accessToken", data.data.accessToken);
+        localStorage.setItem("refreshToken", data.data.refreshToken);
+        localStorage.setItem("user", JSON.stringify(data.data.user));
+      }
+      dispatch(login({ user: data.data.user, token: data.data.accessToken }));
       setStep('integrations');
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Login failed');

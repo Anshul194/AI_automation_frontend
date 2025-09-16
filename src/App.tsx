@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { LandingPage } from "./components/LandingPage";
 import { LoginFlow } from "./components/LoginFlow";
-import { MainApp } from "./components/MainApp";
+
+import SignupPage from "./components/SignupPage";
 
 // Wrapper for LandingPage to navigate to /login
 function LandingPageWithNav() {
@@ -25,9 +26,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPageWithNav />} />
-        <Route path="/login" element={<LoginFlowWithNav />} />
-        <Route path="/app/*" element={<MainAppWithNav />} />
+  <Route path="/" element={<LandingPageWithNav />} />
+  <Route path="/login" element={<LoginFlowWithNav />} />
+  <Route path="/signup" element={<SignupPage />} />
+  <Route path="/app/*" element={<MainAppWithNav />} />
       </Routes>
     </BrowserRouter>
   );

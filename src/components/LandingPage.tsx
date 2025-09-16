@@ -1,4 +1,6 @@
 import { Button } from "./ui/button";
+import { useEffect, useState } from "react";
+import { Avatar } from "./ui/avatar";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { 
@@ -14,6 +16,14 @@ import {
 } from "lucide-react";
 
 export function LandingPage({ onLogin }: { onLogin: () => void }) {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem("accessToken"));
+    window.addEventListener("storage", () => {
+      setIsLoggedIn(!!localStorage.getItem("accessToken"));
+    });
+    return () => window.removeEventListener("storage", () => {});
+  }, []);
   const features = [
     {
       icon: <TrendingUp className="h-8 w-8 text-dark-cta" />,
@@ -105,12 +115,16 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
             <a href="#features" className="text-dark-secondary hover:text-dark-primary transition-colors">Features</a>
             <a href="#pricing" className="text-dark-secondary hover:text-dark-primary transition-colors">Pricing</a>
             <a href="#testimonials" className="text-dark-secondary hover:text-dark-primary transition-colors">Reviews</a>
-            <Button 
-              onClick={onLogin}
-              className="dark-button-primary"
-            >
-              Login
-            </Button>
+            {isLoggedIn ? (
+              <Avatar className="ml-4" />
+            ) : (
+              <Button 
+                onClick={onLogin}
+                className="dark-button-primary"
+              >
+                Login
+              </Button>
+            )}
           </nav>
         </div>
       </header>
