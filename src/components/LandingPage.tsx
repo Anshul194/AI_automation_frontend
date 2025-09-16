@@ -1,4 +1,5 @@
 import { Button } from "./ui/button";
+import FaqList from "./FaqList";
 import { useEffect, useState } from "react";
 import { User } from "lucide-react";
 import { useRef } from "react";
@@ -334,20 +335,7 @@ export function LandingPage({ onLogin }: { onLogin: () => void }) {
           <div className="text-center space-y-4 mb-16">
             <h2 className="text-3xl font-bold text-dark-primary">Frequently Asked Questions</h2>
           </div>
-          <div className="space-y-6">
-            <Card className="dark-card p-6">
-              <h3 className="font-semibold text-dark-primary mb-2">How quickly can I see results?</h3>
-              <p className="text-dark-secondary">Most brands see actionable insights within 24 hours of connecting their accounts. Full optimization recommendations typically appear within 3-5 days.</p>
-            </Card>
-            <Card className="dark-card p-6">
-              <h3 className="font-semibold text-dark-primary mb-2">Which platforms do you integrate with?</h3>
-              <p className="text-dark-secondary">We currently support Facebook Ads, Instagram Ads, Shopify, and Google Analytics. More integrations are coming soon.</p>
-            </Card>
-            <Card className="dark-card p-6">
-              <h3 className="font-semibold text-dark-primary mb-2">Is my data secure?</h3>
-              <p className="text-dark-secondary">Yes, we use enterprise-grade encryption and never store sensitive payment information. Your data is processed securely and never shared with third parties.</p>
-            </Card>
-          </div>
+          <FaqList />
         </div>
       </section>
 
