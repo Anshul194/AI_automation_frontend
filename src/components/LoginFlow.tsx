@@ -8,9 +8,9 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
-import { 
-  Mail, 
-  Lock, 
+import {
+  Mail,
+  Lock,
   Chrome,
   CheckCircle,
   AlertCircle,
@@ -24,22 +24,22 @@ import {
   Sparkles,
   Zap,
   Users,
-  TrendingUp
+  TrendingUp,
 } from "lucide-react";
+import axiosInstance from "../../axiosConfig";
 
-type LoginStep = 'login' | 'integrations' | 'analyzing';
+type LoginStep = "login" | "integrations" | "analyzing";
 
 export function LoginFlow({ onComplete }: { onComplete: () => void }) {
-
   const dispatch = useAppDispatch();
-  const [step, setStep] = useState<LoginStep>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [step, setStep] = useState<LoginStep>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [connections, setConnections] = useState({
     shopify: false,
     meta: false,
-    analytics: false
+    analytics: false,
   });
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -51,30 +51,35 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
     try {
       const data = await loginUser(email, password);
       console.log(data);
-      if (data && data?.data?.accessToken && data?.data?.refreshToken && data?.data?.user) {
+      if (
+        data &&
+        data?.data?.accessToken &&
+        data?.data?.refreshToken &&
+        data?.data?.user
+      ) {
         localStorage.setItem("accessToken", data.data.accessToken);
         localStorage.setItem("refreshToken", data.data.refreshToken);
         localStorage.setItem("user", JSON.stringify(data.data.user));
       }
       dispatch(login({ user: data.data.user, token: data.data.accessToken }));
-      setStep('integrations');
+      setStep("integrations");
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Login failed');
+      setError(err?.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    setStep('integrations');
+  const handleGoogleLogin = async () => {
+    window.location.href = "http://localhost:3000/api/auth/google";
   };
 
   const toggleConnection = (service: keyof typeof connections) => {
-    setConnections(prev => ({ ...prev, [service]: !prev[service] }));
+    setConnections((prev) => ({ ...prev, [service]: !prev[service] }));
   };
 
   const handleContinue = () => {
-    setStep('analyzing');
+    setStep("analyzing");
     let currentProgress = 0;
     const interval = setInterval(() => {
       currentProgress += 10;
@@ -82,16 +87,15 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
       if (currentProgress >= 100) {
         clearInterval(interval);
         setTimeout(() => {
-          alert('Setup Complete! Dashboard would load here.');
+          alert("Setup Complete! Dashboard would load here.");
         }, 500);
       }
-    }, 200);
+    }, 200);  
   };
 
-  if (step === 'login') {
+  if (step === "login") {
     return (
       <div className="min-h-screen bg-dark-bg">
-
         {/* Main Content */}
         <div className="max-w-6xl mx-auto px-6 py-16 h-screen flex sm:items-center">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
@@ -103,13 +107,14 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                   AI-Powered Analytics
                 </div>
                 <h2 className="text-5xl font-bold text-dark-primary leading-tight">
-                  Transform Your 
+                  Transform Your
                   <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent block">
                     Business Data
                   </span>
                 </h2>
                 <p className="text-xl text-dark-secondary leading-relaxed">
-                  Connect your platforms and get AI-driven insights that help you make smarter decisions and grow your business faster.
+                  Connect your platforms and get AI-driven insights that help
+                  you make smarter decisions and grow your business faster.
                 </p>
               </div>
 
@@ -118,15 +123,24 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                   <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4">
                     <BarChart3 className="w-6 h-6 text-blue-500" />
                   </div>
-                  <h3 className="font-semibold text-dark-primary mb-2">Smart Analytics</h3>
-                  <p className="text-sm text-dark-secondary">AI analyzes your data patterns and provides actionable insights</p>
+                  <h3 className="font-semibold text-dark-primary mb-2">
+                    Smart Analytics
+                  </h3>
+                  <p className="text-sm text-dark-secondary">
+                    AI analyzes your data patterns and provides actionable
+                    insights
+                  </p>
                 </div>
                 <div className="bg-dark-hover p-6 rounded-2xl border border-dark-border">
                   <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4">
                     <Zap className="w-6 h-6 text-purple-500" />
                   </div>
-                  <h3 className="font-semibold text-dark-primary mb-2">Real-time Updates</h3>
-                  <p className="text-sm text-dark-secondary">Get instant notifications when important metrics change</p>
+                  <h3 className="font-semibold text-dark-primary mb-2">
+                    Real-time Updates
+                  </h3>
+                  <p className="text-sm text-dark-secondary">
+                    Get instant notifications when important metrics change
+                  </p>
                 </div>
               </div>
             </div>
@@ -135,12 +149,16 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
             <div className="bg-dark-card border border-dark-border rounded-3xl p-8 shadow-2xl">
               <div className="space-y-8">
                 <div className="text-center space-y-3">
-                  <h3 className="text-2xl font-bold text-dark-primary">Welcome Back</h3>
-                  <p className="text-dark-secondary">Sign in to access your analytics dashboard</p>
+                  <h3 className="text-2xl font-bold text-dark-primary">
+                    Welcome Back
+                  </h3>
+                  <p className="text-dark-secondary">
+                    Sign in to access your analytics dashboard
+                  </p>
                 </div>
 
                 {/* Google Login */}
-                <button 
+                <button
                   onClick={handleGoogleLogin}
                   className="w-full flex items-center justify-center space-x-3 bg-dark-hover hover:bg-dark-border border border-dark-border rounded-2xl py-4 px-6 transition-all duration-200 text-dark-primary font-medium"
                 >
@@ -154,7 +172,9 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                     <div className="w-full border-t border-dark-border"></div>
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="bg-dark-card px-4 text-dark-secondary">Or sign in with email</span>
+                    <span className="bg-dark-card px-4 text-dark-secondary">
+                      Or sign in with email
+                    </span>
                   </div>
                 </div>
 
@@ -162,7 +182,9 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                 <div className="space-y-6">
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-dark-primary mb-2">Email Address</label>
+                      <label className="block text-sm font-medium text-dark-primary mb-2">
+                        Email Address
+                      </label>
                       <div className="relative">
                         <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-dark-secondary" />
                         <input
@@ -176,7 +198,9 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-dark-primary mb-2">Password</label>
+                      <label className="block text-sm font-medium text-dark-primary mb-2">
+                        Password
+                      </label>
                       <div className="relative">
                         <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-dark-secondary" />
                         <input
@@ -191,49 +215,63 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-4 top-1/2 transform -translate-y-1/2 text-dark-secondary hover:text-dark-primary transition-colors"
                         >
-                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          {showPassword ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
                         </button>
                       </div>
                     </div>
                   </div>
 
-              <Button 
-                onClick={handleLogin}
-                className="w-full dark-button-primary"
-                size="lg"
-                disabled={loading}
-              >
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Sign In
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              {error && (
-                <div className="text-red-500 text-sm text-center mt-2">{error}</div>
-              )}
-            </div>
+                  <Button
+                    onClick={handleLogin}
+                    className="w-full dark-button-primary"
+                    size="lg"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Sign In
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  {error && (
+                    <div className="text-red-500 text-sm text-center mt-2">
+                      {error}
+                    </div>
+                  )}
+                </div>
 
-                  <div className="text-center text-sm">
-                    <span className="text-dark-secondary">Don't have an account? </span>
-                    <button className="text-dark-cta hover:underline font-medium">Create one</button>
-                  </div>
+                <div className="text-center text-sm">
+                  <span className="text-dark-secondary">
+                    Don't have an account?{" "}
+                  </span>
+                  <button className="text-dark-cta hover:underline font-medium">
+                    Create one
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
     );
   }
 
-  if (step === 'integrations') {
+  if (step === "integrations") {
     return (
       <div className="min-h-screen flex justify-center items-center bg-dark-bg">
-
         {/* Main Content */}
         <div className="max-w-4xl mx-auto px-6 py-12">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-dark-primary mb-4">Connect Your Data Sources</h2>
+            <h2 className="text-3xl font-bold text-dark-primary mb-4">
+              Connect Your Data Sources
+            </h2>
             <p className="text-dark-secondary text-lg max-w-2xl mx-auto">
-              Link your business platforms to start getting AI-powered insights and recommendations
+              Link your business platforms to start getting AI-powered insights
+              and recommendations
             </p>
           </div>
 
@@ -247,8 +285,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                     <ShoppingBag className="w-8 h-8 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold text-dark-primary">Shopify Store</h3>
-                    <p className="text-dark-secondary">Connect your store to track revenue, orders, and customer data</p>
+                    <h3 className="text-xl font-semibold text-dark-primary">
+                      Shopify Store
+                    </h3>
+                    <p className="text-dark-secondary">
+                      Connect your store to track revenue, orders, and customer
+                      data
+                    </p>
                     <div className="flex items-center space-x-4 text-sm text-dark-secondary">
                       <span>• Revenue Tracking</span>
                       <span>• Order Analytics</span>
@@ -269,14 +312,14 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                     </div>
                   )}
                   <button
-                    onClick={() => toggleConnection('shopify')}
+                    onClick={() => toggleConnection("shopify")}
                     className={`px-3 py-2 rounded-full font-medium transition-all ${
                       connections.shopify
-                        ? 'bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border'
-                        : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
+                        ? "bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border"
+                        : "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700"
                     }`}
                   >
-                    {connections.shopify ? 'Disconnect' : 'Connect'}
+                    {connections.shopify ? "Disconnect" : "Connect"}
                   </button>
                 </div>
               </div>
@@ -290,8 +333,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                     <Facebook className="w-8 h-8 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold text-dark-primary">Meta Ads Manager</h3>
-                    <p className="text-dark-secondary">Connect Facebook & Instagram ad accounts for campaign insights</p>
+                    <h3 className="text-xl font-semibold text-dark-primary">
+                      Meta Ads Manager
+                    </h3>
+                    <p className="text-dark-secondary">
+                      Connect Facebook & Instagram ad accounts for campaign
+                      insights
+                    </p>
                     <div className="flex items-center space-x-4 text-sm text-dark-secondary">
                       <span>• Campaign Performance</span>
                       <span>• ROAS Tracking</span>
@@ -312,14 +360,14 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                     </div>
                   )}
                   <button
-                    onClick={() => toggleConnection('meta')}
+                    onClick={() => toggleConnection("meta")}
                     className={`px-3 py-2 rounded-full  font-medium transition-all ${
                       connections.meta
-                        ? 'bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border'
-                        : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
+                        ? "bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border"
+                        : "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700"
                     }`}
                   >
-                    {connections.meta ? 'Disconnect' : 'Connect'}
+                    {connections.meta ? "Disconnect" : "Connect"}
                   </button>
                 </div>
               </div>
@@ -333,8 +381,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                     <BarChart3 className="w-8 h-8 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold text-dark-primary">Google Analytics</h3>
-                    <p className="text-dark-secondary">Track website traffic, user behavior, and conversion metrics</p>
+                    <h3 className="text-xl font-semibold text-dark-primary">
+                      Google Analytics
+                    </h3>
+                    <p className="text-dark-secondary">
+                      Track website traffic, user behavior, and conversion
+                      metrics
+                    </p>
                     <div className="flex items-center space-x-4 text-sm text-dark-secondary">
                       <span>• Traffic Analysis</span>
                       <span>• User Behavior</span>
@@ -355,14 +408,14 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                     </div>
                   )}
                   <button
-                    onClick={() => toggleConnection('analytics')}
+                    onClick={() => toggleConnection("analytics")}
                     className={`px-3 py-2 rounded-full font-medium transition-all ${
                       connections.analytics
-                        ? 'bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border'
-                        : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
+                        ? "bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border"
+                        : "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700"
                     }`}
                   >
-                    {connections.analytics ? 'Disconnect' : 'Connect'}
+                    {connections.analytics ? "Disconnect" : "Connect"}
                   </button>
                 </div>
               </div>
@@ -371,7 +424,7 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
 
           {/* Continue Button */}
           <div className="text-center space-y-6">
-            <button 
+            <button
               onClick={handleContinue}
               disabled={!connections.shopify && !connections.meta}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-dark-tag disabled:to-dark-tag disabled:cursor-not-allowed text-white font-semibold py-4 px-8 rounded-2xl transition-all flex items-center space-x-3 mx-auto"
@@ -388,7 +441,7 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
     );
   }
 
-  if (step === 'analyzing') {
+  if (step === "analyzing") {
     return (
       <div className="min-h-screen bg-dark-bg flex items-center justify-center p-6">
         <div className="w-full max-w-lg">
@@ -402,8 +455,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
             </div>
 
             <div className="space-y-3">
-              <h2 className="text-3xl font-bold text-dark-primary">Setting Up Your Dashboard</h2>
-              <p className="text-dark-secondary text-lg">We're analyzing your connected data sources and preparing personalized insights</p>
+              <h2 className="text-3xl font-bold text-dark-primary">
+                Setting Up Your Dashboard
+              </h2>
+              <p className="text-dark-secondary text-lg">
+                We're analyzing your connected data sources and preparing
+                personalized insights
+              </p>
             </div>
           </div>
 
@@ -411,11 +469,15 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
           <div className="bg-dark-card border border-dark-border rounded-3xl p-8 mt-12 space-y-8">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-dark-primary font-medium">Overall Progress</span>
-                <span className="text-dark-cta font-bold text-lg">{progress}%</span>
+                <span className="text-dark-primary font-medium">
+                  Overall Progress
+                </span>
+                <span className="text-dark-cta font-bold text-lg">
+                  {progress}%
+                </span>
               </div>
               <div className="h-3 bg-dark-hover rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progress}%` }}
                 ></div>
@@ -432,7 +494,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                 )}
                 <div className="flex items-center space-x-3 flex-1">
                   <ShoppingBag className="w-5 h-5 text-dark-secondary" />
-                  <span className={`font-medium ${progress > 20 ? "text-dark-positive" : "text-dark-secondary"}`}>
+                  <span
+                    className={`font-medium ${
+                      progress > 20
+                        ? "text-dark-positive"
+                        : "text-dark-secondary"
+                    }`}
+                  >
                     Connected to Shopify
                   </span>
                 </div>
@@ -446,7 +514,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                 )}
                 <div className="flex items-center space-x-3 flex-1">
                   <Facebook className="w-5 h-5 text-dark-secondary" />
-                  <span className={`font-medium ${progress > 40 ? "text-dark-positive" : "text-dark-secondary"}`}>
+                  <span
+                    className={`font-medium ${
+                      progress > 40
+                        ? "text-dark-positive"
+                        : "text-dark-secondary"
+                    }`}
+                  >
                     Importing Facebook Ads data
                   </span>
                 </div>
@@ -460,7 +534,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                 )}
                 <div className="flex items-center space-x-3 flex-1">
                   <BarChart3 className="w-5 h-5 text-dark-secondary" />
-                  <span className={`font-medium ${progress > 60 ? "text-dark-positive" : "text-dark-secondary"}`}>
+                  <span
+                    className={`font-medium ${
+                      progress > 60
+                        ? "text-dark-positive"
+                        : "text-dark-secondary"
+                    }`}
+                  >
                     Calculating ROAS & RTO metrics
                   </span>
                 </div>
@@ -474,7 +554,13 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
                 )}
                 <div className="flex items-center space-x-3 flex-1">
                   <Sparkles className="w-5 h-5 text-dark-secondary" />
-                  <span className={`font-medium ${progress > 80 ? "text-dark-positive" : "text-dark-secondary"}`}>
+                  <span
+                    className={`font-medium ${
+                      progress > 80
+                        ? "text-dark-positive"
+                        : "text-dark-secondary"
+                    }`}
+                  >
                     Generating AI recommendations
                   </span>
                 </div>
@@ -483,7 +569,9 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
           </div>
 
           <div className="text-center mt-8">
-            <p className="text-dark-secondary text-sm">This usually takes 30-60 seconds</p>
+            <p className="text-dark-secondary text-sm">
+              This usually takes 30-60 seconds
+            </p>
           </div>
         </div>
       </div>
