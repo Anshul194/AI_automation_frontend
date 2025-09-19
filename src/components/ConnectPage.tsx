@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppDispatch } from "../store/hooks";
 import { loginUser } from "../store/slices/authSlice";
 import { login } from "../store/slices/authSlice";
@@ -27,6 +27,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import axiosInstance from "../../axiosConfig";
+import { fetchGoogleAuthUrl, fetchGoogleTokens, fetchShopifyConnectUrl } from "../store/slices/connection";
 
 type LoginStep = "login" | "integrations" | "analyzing";
 
@@ -40,28 +41,152 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [modalContent, setModalContent] = useState<React.ReactNode>(null);
+  const [shopDomain, setShopDomain] = useState("");
+  const [showShopifyInput, setShowShopifyInput] = useState(false);
+  // Helper to get query param
+  function getQueryParam(name: string) {
+    return new URLSearchParams(window.location.search).get(name);
+  }
 
-  const toggleConnection = (service: keyof typeof connections) => {
-    setConnections((prev) => ({ ...prev, [service]: !prev[service] }));
+  // Handle OAuth code in URL
+  useEffect(() => {
+    const code = getQueryParam("code");
+    const status = getQueryParam("status");
+    if (code && status === "success") {
+      setShowModal(true);
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <div className="text-lg font-semibold">Connecting to Google Analytics...</div>
+        </div>
+      );
+      setLoading(true);
+      fetchGoogleTokens(code)
+        .then((tokens) => {
+          localStorage.setItem("ga_tokens", JSON.stringify(tokens));
+          setModalContent(
+            <div className="flex flex-col items-center space-y-4 p-6">
+              <CheckCircle className="w-8 h-8 text-green-500" />
+              <div className="text-lg font-semibold">Connected successfully!</div>
+            </div>
+          );
+          setConnections((prev) => ({ ...prev, analytics: true }));
+          setTimeout(() => {
+            setShowModal(false);
+            // Remove code param from URL
+            const url = new URL(window.location.href);
+            url.searchParams.delete("code");
+            url.searchParams.delete("status");
+            window.history.replaceState({}, document.title, url.pathname);
+          }, 1500);
+        })
+        .catch((err) => {
+          setModalContent(
+            <div className="flex flex-col items-center space-y-4 p-6">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+              <div className="text-lg font-semibold">Failed to connect: {err?.toString?.() || "Unknown error"}</div>
+            </div>
+          );
+          setTimeout(() => setShowModal(false), 2000);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, []);
+  // Simple modal component
+  const Modal = ({ open, children }: { open: boolean; children: React.ReactNode }) => {
+    if (!open) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white dark:bg-dark-card rounded-2xl shadow-lg min-w-[300px] max-w-xs mx-4">
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  // Handler for Google Analytics connect
+  const handleGoogleAnalyticsConnect = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = await fetchGoogleAuthUrl();
+      window.open(url, "_blank");
+    } catch (err: any) {
+      setError(err?.toString() || "Failed to get Google Analytics auth URL");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  // Shopify connect handler: just open the popup
+  const handleShopifyConnect = () => {
+    setShowShopifyInput(true);
+  };
+
+  // Confirm Shopify subdomain and connect (call API only here)
+  const handleShopifySubmit = async () => {
+    setLoading(true);
+    setError(null);
+    setShowModal(true);
+    setShowShopifyInput(false);
+    setModalContent(
+      <div className="flex flex-col items-center space-y-4 p-6">
+        <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+        <div className="text-lg font-semibold">Connecting to Shopify...</div>
+      </div>
+    );
+    try {
+      // Get userId from localStorage user key
+      const userStr = localStorage.getItem("user");
+      const userId = userStr ? JSON.parse(userStr)._id : null;
+      if (!userId) throw new Error("User ID not found in localStorage");
+      if (!shopDomain) throw new Error("Please enter your Shopify domain");
+      const url = await fetchShopifyConnectUrl(userId, shopDomain);
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <CheckCircle className="w-8 h-8 text-green-500" />
+          <div className="text-lg font-semibold">Redirecting to Shopify...</div>
+        </div>
+      );
+      setTimeout(() => {
+        window.open(url, "_blank");
+        setShowModal(false);
+      }, 1000);
+    } catch (err: any) {
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <AlertCircle className="w-8 h-8 text-red-500" />
+          <div className="text-lg font-semibold">{err?.toString?.() || "Failed to connect to Shopify"}</div>
+        </div>
+      );
+      setTimeout(() => setShowModal(false), 2000);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleContinue = () => {
-    setStep("analyzing");
-    // let currentProgress = 0;
-    // const interval = setInterval(() => {
-    //   currentProgress += 10;
-    //   setProgress(currentProgress);
-    //   if (currentProgress >= 100) {
-    //     clearInterval(interval);
-    //     setTimeout(() => {
-    //       alert("Setup Complete! Dashboard would load here.");
-    //     }, 500);
-    //   }
-    // }, 200);
+    // Simulate analyzing step or call onComplete
+    setShowModal(true);
+    setModalContent(
+      <div className="flex flex-col items-center space-y-4 p-6">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <div className="text-lg font-semibold">Analyzing your connections...</div>
+      </div>
+    );
+    setTimeout(() => {
+      setShowModal(false);
+      if (onComplete) onComplete();
+    }, 1200);
   };
 
   return (
-    <div className="min-h-screen flex justify-center items-center bg-dark-bg">
+    <>
+      <Modal open={showModal}>{modalContent}</Modal>
+      <div className="min-h-screen flex justify-center items-center bg-dark-bg">
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="text-center mb-12">
@@ -111,15 +236,47 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
                   </div>
                 )}
                 <button
-                  onClick={() => toggleConnection("shopify")}
+                  onClick={handleShopifyConnect}
                   className={`px-3 py-2 rounded-full font-medium transition-all ${
                     connections.shopify
                       ? "bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border"
                       : "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700"
                   }`}
+                  disabled={connections.shopify || loading}
                 >
                   {connections.shopify ? "Disconnect" : "Connect"}
                 </button>
+      {/* Shopify Subdomain Modal */}
+      <Modal open={showShopifyInput}>
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <div className="text-lg font-semibold">Enter your Shopify subdomain</div>
+          <input
+            type="text"
+            placeholder="e.g. mystore.myshopify.com"
+            value={shopDomain}
+            onChange={e => setShopDomain(e.target.value)}
+            className="px-2 py-2 rounded border border-dark-border bg-dark-bg text-white w-full"
+            style={{ minWidth: 220 }}
+            autoFocus
+          />
+          <div className="flex space-x-2 w-full">
+            <button
+              onClick={handleShopifySubmit}
+              className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white py-2 rounded-full font-medium hover:from-blue-600 hover:to-purple-700"
+              disabled={!shopDomain || loading}
+            >
+              Connect
+            </button>
+            <button
+              onClick={() => setShowShopifyInput(false)}
+              className="flex-1 bg-dark-tag text-dark-secondary py-2 rounded-full font-medium"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
               </div>
             </div>
           </div>
@@ -159,12 +316,13 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
                   </div>
                 )}
                 <button
-                  onClick={() => toggleConnection("meta")}
+                  onClick={() => setConnections(prev => ({ ...prev, meta: !prev.meta }))}
                   className={`px-3 py-2 rounded-full  font-medium transition-all ${
                     connections.meta
                       ? "bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border"
                       : "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700"
                   }`}
+                  disabled={loading}
                 >
                   {connections.meta ? "Disconnect" : "Connect"}
                 </button>
@@ -206,14 +364,20 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
                   </div>
                 )}
                 <button
-                  onClick={() => toggleConnection("analytics")}
+                  onClick={handleGoogleAnalyticsConnect}
                   className={`px-3 py-2 rounded-full font-medium transition-all ${
                     connections.analytics
                       ? "bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border"
                       : "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700"
                   }`}
+                  disabled={loading}
                 >
-                  {connections.analytics ? "Disconnect" : "Connect"}
+                  {loading && !connections.analytics ? (
+                    <>
+                      <span>Connecting...</span>
+                      <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                    </>
+                  ) : connections.analytics ? "Disconnect" : "Connect"}
                 </button>
               </div>
             </div>
@@ -236,7 +400,9 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
         </div>
       </div>
     </div>
-  );
+
+    </>
+  )
 }
 
 export default ConnectPage;

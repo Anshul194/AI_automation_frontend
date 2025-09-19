@@ -62,7 +62,7 @@ export function LoginFlow({ onComplete }: { onComplete: () => void }) {
         localStorage.setItem("user", JSON.stringify(data.data.user));
       }
       dispatch(login({ user: data.data.user, token: data.data.accessToken }));
-      setStep("integrations");
+     window.location.href = "/connect";
     } catch (err: any) {
       setError(err?.response?.data?.message || "Login failed");
     } finally {
