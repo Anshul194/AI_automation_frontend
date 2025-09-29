@@ -4,6 +4,7 @@ import { LoginFlow } from "./components/LoginFlow";
 
 import SignupPage from "./components/SignupPage";
 import ConnectPage from "./components/ConnectPage";
+import {MainApp} from "./components/MainApp";
 
 // Wrapper for LandingPage to navigate to /login
 function LandingPageWithNav() {

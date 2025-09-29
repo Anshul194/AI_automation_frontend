@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -24,39 +24,16 @@ import {
   Globe
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { useAppDispatch } from "../../store/hooks";
+import { fetchGoogleAnalyticsData } from "../../store/slices/google-ananyltics";
 
 type ReportView = 'analytics' | 'demographics';
 
 export function ReportsPage() {
   const [activeView, setActiveView] = useState<ReportView>('analytics');
+  const [propertyData, setPropertyData] = useState<any | null>(null);
+  const dispatch = useAppDispatch();
 
-  // Mock Google Analytics "All Data" metrics
-  const analyticsData = {
-    summary: {
-      totalUsers: 45672,
-      totalSessions: 58934,
-      bounceRate: 34.2,
-      sessionDuration: 245,
-      conversionRate: 3.8,
-      revenue: 2847500
-    },
-    trend: {
-      users: 12.5,
-      sessions: 8.3,
-      revenue: 15.2
-    }
-  };
-
-  // Mock traffic data for charts
-  const trafficData = [
-    { date: 'Day 1', users: 4200, sessions: 4850, bounceRate: 42 },
-    { date: 'Day 2', users: 3900, sessions: 4420, bounceRate: 38 },
-    { date: 'Day 3', users: 4500, sessions: 5180, bounceRate: 35 },
-    { date: 'Day 4', users: 4820, sessions: 5640, bounceRate: 32 },
-    { date: 'Day 5', users: 4280, sessions: 4990, bounceRate: 40 },
-    { date: 'Day 6', users: 3980, sessions: 4580, bounceRate: 44 },
-    { date: 'Day 7', users: 5120, sessions: 5720, bounceRate: 28 }
-  ];
 
   const channelData = [
     { name: 'Organic Search', value: 38.2, color: '#22C55E' },
@@ -66,82 +43,158 @@ export function ReportsPage() {
     { name: 'YouTube', value: 6.4, color: '#A855F7' }
   ];
 
-  const deviceData = [
-    { type: 'Mobile', users: 18760, percentage: 53.5, conversionRate: 2.8 },
-    { type: 'Desktop', users: 12640, percentage: 36.1, conversionRate: 4.2 },
-    { type: 'Tablet', users: 3640, percentage: 10.4, conversionRate: 3.1 }
-  ];
-
-  const topPagesData = [
+   const topPagesData = [
     { page: '/products', pageViews: 48320, uniqueViews: 34680, avgTime: '03:45', bounceRate: 26.8 },
     { page: '/products/mens/watches', pageViews: 16600, uniqueViews: 14400, avgTime: '04:16', bounceRate: 15.2 },
     { page: '/cart', pageViews: 12840, uniqueViews: 11030, avgTime: '04:52', bounceRate: 68.9 },
     { page: '/checkout', pageViews: 8600, uniqueViews: 6440, avgTime: '02:18', bounceRate: 24.6 }
   ];
 
-  const conversionFunnelData = [
-    { stage: 'Home Page', users: 35200, percentage: 100, color: '#3B82F6' },
-    { stage: 'Product View', users: 24640, percentage: 70, color: '#22C55E' },
-    { stage: 'Add to Cart', users: 14230, percentage: 40.4, color: '#F59E0B' },
-    { stage: 'Checkout', users: 8600, percentage: 24.4, color: '#EF4444' },
-    { stage: 'Purchase', users: 2418, percentage: 6.9, color: '#A855F7' }
-  ];
 
-  const geoData = [
-    { country: 'Australia', revenue: 48320, sessions: 12640, conversionRate: 6.2 },
-    { country: 'Canada', revenue: 35240, sessions: 8960, conversionRate: 4.8 },
-    { country: 'United States', revenue: 89420, sessions: 23580, conversionRate: 5.4 },
-    { country: 'India', revenue: 21600, sessions: 8920, conversionRate: 3.1 }
-  ];
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(1)}L`;
+  useEffect(() => {
+    const stored = localStorage.getItem("ga_selected_property");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setPropertyData(parsed.data);
+        console.log("propertyData from localStorage:", parsed.data);
+      } catch {}
     }
-    return `₹${(amount / 1000).toFixed(0)}K`;
+  }, []);
+
+  // Fetch latest analytics data for selected property on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("ga_selected_property");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const propertyId = parsed.propertyId;
+        const gaTokens = localStorage.getItem("ga_tokens");
+        const access_token = gaTokens ? JSON.parse(gaTokens).access_token : "";
+        const endDate = new Date().toISOString().slice(0, 10);
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+        // Call your handlePropertyConnect API (thunk)
+        dispatch(fetchGoogleAnalyticsData({ access_token, propertyId, startDate, endDate }))
+          .then((resultAction: any) => {
+            if (fetchGoogleAnalyticsData.fulfilled.match(resultAction)) {
+              console.log("Google Analytics data fetched successfully", resultAction.payload);
+              localStorage.setItem("ga_selected_property", JSON.stringify({ propertyId, data: resultAction.payload }));
+              setPropertyData(resultAction.payload);
+              console.log("propertyData from API:", resultAction.payload);
+            }
+          });
+      } catch {}
+    }
+  }, [dispatch]);
+
+  // Helper for formatting currency
+  const formatCurrency = (amount: number | string) => {
+    const num = typeof amount === "string" ? parseFloat(amount) : amount;
+    if (isNaN(num)) return "₹0";
+    if (num >= 100000) {
+      return `₹${(num / 100000).toFixed(1)}L`;
+    }
+    return `₹${(num / 1000).toFixed(0)}K`;
   };
 
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
+  // Helper for formatting duration (seconds to mm:ss)
+  const formatDuration = (seconds: number | string) => {
+    const sec = typeof seconds === "string" ? parseFloat(seconds) : seconds;
+    if (isNaN(sec)) return "00:00";
+    const minutes = Math.floor(sec / 60);
+    const remainingSeconds = Math.round(sec % 60);
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  // Demographics data
-  const ageData = [
-    { age: '18-24', users: 8450, percentage: 24.1, revenue: 425000, conversionRate: 2.8 },
-    { age: '25-34', users: 12640, percentage: 36.1, revenue: 780000, conversionRate: 4.2 },
-    { age: '35-44', users: 9280, percentage: 26.5, revenue: 695000, conversionRate: 4.8 },
-    { age: '45-54', users: 3210, percentage: 9.2, revenue: 289000, conversionRate: 3.9 },
-    { age: '55+', users: 1420, percentage: 4.1, revenue: 156000, conversionRate: 3.2 }
-  ];
+  // --- Use summary and data from API response object ---
+  const summary = propertyData?.summary || {};
 
-  const genderData = [
-    { gender: 'Female', users: 18960, percentage: 54.2, revenue: 1245000, conversionRate: 4.3 },
-    { gender: 'Male', users: 15140, percentage: 43.3, revenue: 985000, conversionRate: 3.8 },
-    { gender: 'Non-binary', users: 900, percentage: 2.5, revenue: 115000, conversionRate: 3.2 }
-  ];
+  // Prepare traffic data (latest 7 days for chart)
+  const trafficDataRaw = Array.isArray(propertyData?.data)
+    ? propertyData.data.map((row: any) => ({
+        date: row.date || "",
+        users: row.totalUsers || 0,
+        sessions: row.sessions || 0,
+        bounceRate: row.bounceRate
+          ? (parseFloat(row.bounceRate) * 100).toFixed(1)
+          : undefined,
+        deviceCategory: row.deviceCategory,
+        country: row.country,
+      }))
+    : [];
 
-  const locationData = [
-    { location: 'Delhi NCR', users: 6540, percentage: 18.7, revenue: 1125000, conversionRate: 4.5 },
-    { location: 'Mumbai', users: 5680, percentage: 16.2, revenue: 895000, conversionRate: 4.8 },
-    { location: 'Bangalore', users: 4250, percentage: 12.1, revenue: 685000, conversionRate: 4.3 },
-    { location: 'Chennai', users: 3180, percentage: 9.1, revenue: 485000, conversionRate: 3.9 },
-    { location: 'Kolkata', users: 2840, percentage: 8.1, revenue: 425000, conversionRate: 3.6 },
-    { location: 'Pune', users: 2450, percentage: 7.0, revenue: 398000, conversionRate: 4.0 },
-    { location: 'Hyderabad', users: 2180, percentage: 6.2, revenue: 356000, conversionRate: 3.8 },
-    { location: 'Others', users: 8880, percentage: 25.4, revenue: 1250000, conversionRate: 3.5 }
-  ];
+  // Aggregate traffic data by date
+  const trafficByDateMap: Record<string, { date: string; users: number; sessions: number }> = {};
+  Array.isArray(propertyData?.data) && propertyData.data.forEach((row: any) => {
+    if (!row.date) return;
+    if (!trafficByDateMap[row.date]) {
+      trafficByDateMap[row.date] = { date: row.date, users: 0, sessions: 0 };
+    }
+    trafficByDateMap[row.date].users += row.totalUsers || 0;
+    trafficByDateMap[row.date].sessions += row.sessions || 0;
+  });
+  const trafficDatesSorted = Object.keys(trafficByDateMap).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  const trafficDataAll = trafficDatesSorted.map(date => trafficByDateMap[date]);
+  const trafficDataLatest7 = trafficDataAll.slice(0, 7).reverse();
 
-  const placementData = [
-    { placement: 'Instagram Reels', impressions: 320000, clicks: 18560, ctr: 5.8, spend: 145000, roas: 7.2 },
-    { placement: 'Facebook Feed', impressions: 245000, clicks: 12250, ctr: 5.0, spend: 125000, roas: 6.2 },
-    { placement: 'Instagram Stories', impressions: 189000, clicks: 8505, ctr: 4.5, spend: 95000, roas: 4.8 },
-    { placement: 'Instagram Feed', impressions: 156000, clicks: 6240, ctr: 4.0, spend: 78000, roas: 5.1 },
-    { placement: 'Facebook Stories', impressions: 98000, clicks: 2940, ctr: 3.0, spend: 49000, roas: 3.9 },
-    { placement: 'Messenger', impressions: 67000, clicks: 1675, ctr: 2.5, spend: 33500, roas: 3.2 },
-    { placement: 'Audience Network', impressions: 45000, clicks: 900, ctr: 2.0, spend: 22500, roas: 2.8 }
+  // Show only the latest 7 days (by date, descending)
+  const trafficDataSorted = [...trafficDataRaw].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const trafficData = trafficDataSorted.slice(0, 7).reverse();
+
+  // --- Device & Platform Analytics (dynamic) ---
+  const deviceMap: Record<string, { users: number; sessions: number }> = {};
+  trafficDataRaw.forEach(row => {
+    if (!row.deviceCategory) return;
+    if (!deviceMap[row.deviceCategory]) deviceMap[row.deviceCategory] = { users: 0, sessions: 0 };
+    deviceMap[row.deviceCategory].users += row.users || 0;
+    deviceMap[row.deviceCategory].sessions += row.sessions || 0;
+  });
+  const totalDeviceUsers = Object.values(deviceMap).reduce((sum, d) => sum + d.users, 0);
+  const deviceData = Object.entries(deviceMap).map(([type, data]) => ({
+    type: type.charAt(0).toUpperCase() + type.slice(1),
+    users: data.users,
+    percentage: totalDeviceUsers ? ((data.users / totalDeviceUsers) * 100).toFixed(1) : 0,
+    conversionRate: "-", // Not available in GA4 default, unless you have conversion events
+  }));
+
+  // --- E-commerce Conversion Funnel (dynamic) ---
+  // Example: Home Page = total users, Product View = view_item, Add to Cart = add_to_cart, Checkout = begin_checkout, Purchase = purchase
+  const funnelStages = [
+    { stage: "Home Page", event: "page_view" },
+    { stage: "Product View", event: "view_item" },
+    { stage: "Add to Cart", event: "add_to_cart" },
+    { stage: "Checkout", event: "begin_checkout" },
+    { stage: "Purchase", event: "purchase" }
   ];
+  const funnelCounts: Record<string, number> = {};
+  funnelStages.forEach(({ event }) => {
+    funnelCounts[event] = trafficDataRaw.filter(row => row.eventName === event)
+      .reduce((sum, row) => sum + (row.users || 0), 0);
+  });
+  const homeUsers = summary.totalUsers || 0;
+  const conversionFunnelData = funnelStages.map((stage, idx) => {
+    const users = idx === 0 ? homeUsers : funnelCounts[stage.event];
+    const percentage = homeUsers ? ((users / homeUsers) * 100).toFixed(1) : 0;
+    const colors = ["#3B82F6", "#22C55E", "#F59E0B", "#EF4444", "#A855F7"];
+    return { stage: stage.stage, users, percentage, color: colors[idx] };
+  });
+
+  // --- Geographic Performance (dynamic) ---
+  const geoMap: Record<string, { revenue: number; sessions: number; conversionRate: string }> = {};
+  trafficDataRaw.forEach(row => {
+    if (!row.country) return;
+    if (!geoMap[row.country]) geoMap[row.country] = { revenue: 0, sessions: 0, conversionRate: "-" };
+    geoMap[row.country].revenue += parseFloat(row.purchaseRevenue || "0");
+    geoMap[row.country].sessions += row.sessions || 0;
+    // Conversion rate not available unless you have transactions
+  });
+  const geoData = Object.entries(geoMap).map(([country, data]) => ({
+    country,
+    revenue: data.revenue,
+    sessions: data.sessions,
+    conversionRate: data.conversionRate
+  }));
 
   return (
     <div className="p-6 space-y-6 bg-dark-bg min-h-screen">
@@ -209,28 +262,34 @@ export function ReportsPage() {
                 <Users className="h-5 w-5 text-blue-400" />
               </div>
               <div className="flex items-center gap-2">
-                <p className="text-2xl font-bold text-dark-primary">32,450</p>
+                <p className="text-2xl font-bold text-dark-primary">
+                  {summary.totalUsers?.toLocaleString?.() ?? "0"}
+                </p>
                 <div className="flex items-center gap-1 text-dark-positive">
                   <ArrowUp className="h-3 w-3" />
-                  <span className="text-xs">+12.5%</span>
+                  <span className="text-xs"> {/* No trend in GA API, so fallback */}
+                    +12.5%
+                  </span>
                 </div>
               </div>
-              <p className="text-xs text-dark-secondary mt-1">vs last month</p>
+              <p className="text-xs text-dark-secondary mt-1">vs last period</p>
             </Card>
 
             <Card className="dark-card">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-dark-secondary">Page Views</span>
+                <span className="text-sm text-dark-secondary">Total Sessions</span>
                 <Eye className="h-5 w-5 text-purple-400" />
               </div>
               <div className="flex items-center gap-2">
-                <p className="text-2xl font-bold text-dark-primary">95,270</p>
+                <p className="text-2xl font-bold text-dark-primary">
+                  {summary.totalSessions?.toLocaleString?.() ?? "0"}
+                </p>
                 <div className="flex items-center gap-1 text-dark-positive">
                   <ArrowUp className="h-3 w-3" />
                   <span className="text-xs">+8.3%</span>
                 </div>
               </div>
-              <p className="text-xs text-dark-secondary mt-1">vs last month</p>
+              <p className="text-xs text-dark-secondary mt-1">vs last period</p>
             </Card>
 
             <Card className="dark-card">
@@ -239,13 +298,15 @@ export function ReportsPage() {
                 <Calendar className="h-5 w-5 text-yellow-400" />
               </div>
               <div className="flex items-center gap-2">
-                <p className="text-2xl font-bold text-dark-primary">05:24</p>
+                <p className="text-2xl font-bold text-dark-primary">
+                  {formatDuration(summary.avgSessionDuration ?? summary.sessionDuration ?? 0)}
+                </p>
                 <div className="flex items-center gap-1 text-dark-positive">
                   <ArrowUp className="h-3 w-3" />
                   <span className="text-xs">+5.2%</span>
                 </div>
               </div>
-              <p className="text-xs text-dark-secondary mt-1">vs last month</p>
+              <p className="text-xs text-dark-secondary mt-1">vs last period</p>
             </Card>
 
             <Card className="dark-card">
@@ -254,13 +315,19 @@ export function ReportsPage() {
                 <TrendingUp className="h-5 w-5 text-green-400" />
               </div>
               <div className="flex items-center gap-2">
-                <p className="text-2xl font-bold text-dark-primary">39.2%</p>
+                <p className="text-2xl font-bold text-dark-primary">
+                  {summary.avgBounceRate && summary.avgBounceRate !== "NaN"
+                    ? `${summary.avgBounceRate}%`
+                    : summary.bounceRate
+                    ? `${summary.bounceRate}%`
+                    : "0%"}
+                </p>
                 <div className="flex items-center gap-1 text-dark-positive">
                   <ArrowDown className="h-3 w-3" />
                   <span className="text-xs">-2.1%</span>
                 </div>
               </div>
-              <p className="text-xs text-dark-secondary mt-1">vs last month</p>
+              <p className="text-xs text-dark-secondary mt-1">vs last period</p>
             </Card>
           </div>
 
@@ -269,49 +336,49 @@ export function ReportsPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-semibold text-dark-primary mb-2">Website Traffic Overview</h3>
-                <p className="text-sm text-dark-secondary">Daily sessions, users, and pageviews for the last 7 days</p>
+                <p className="text-sm text-dark-secondary">Daily sessions, users, and pageviews</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-dark-primary">6000</p>
+                <p className="text-2xl font-bold text-dark-primary">
+                  {trafficDataAll.length > 0
+                    ? Math.max(...trafficDataAll.map(d => Number(d.sessions) || 0))
+                    : "0"}
+                </p>
                 <p className="text-xs text-dark-secondary">Peak Sessions</p>
               </div>
             </div>
             
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trafficData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#94A3B8"
-                    fontSize={12}
-                    tick={{ fill: '#94A3B8' }}
-                  />
-                  <YAxis 
-                    stroke="#94A3B8"
-                    fontSize={12}
-                    tick={{ fill: '#94A3B8' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1E293B', 
-                      border: '1px solid #374151',
-                      borderRadius: '8px',
-                      color: '#FFFFFF'
-                    }}
-                  />
-                  <Legend wrapperStyle={{ color: '#94A3B8' }} />
-                  <Bar dataKey="users" fill="#3B82F6" name="Users" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="sessions" fill="#A855F7" name="Sessions" radius={[4, 4, 0, 0]} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="bounceRate" 
-                    stroke="#F59E0B" 
-                    strokeWidth={2}
-                    name="Bounce Rate %"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+            {/* Horizontally scrollable chart for all days, show latest 7 by default */}
+            <div className="w-full overflow-x-auto">
+              <div style={{ minWidth: Math.max(700, trafficDataAll.length * 100) }}>
+                <ResponsiveContainer width={trafficDataAll.length * 100} height={320}>
+                  <BarChart data={trafficDataAll} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#94A3B8"
+                      fontSize={12}
+                      tick={{ fill: '#94A3B8' }}
+                    />
+                    <YAxis 
+                      stroke="#94A3B8"
+                      fontSize={12}
+                      tick={{ fill: '#94A3B8' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#1E293B', 
+                        border: '1px solid #374151',
+                        borderRadius: '8px',
+                        color: '#FFFFFF'
+                      }}
+                    />
+                    <Legend wrapperStyle={{ color: '#94A3B8' }} />
+                    <Bar dataKey="users" fill="#3B82F6" name="Users" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="sessions" fill="#A855F7" name="Sessions" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </Card>
 
@@ -371,13 +438,12 @@ export function ReportsPage() {
               </div>
             </Card>
 
-            {/* Device & Platform Analytics */}
+            {/* Device & Platform Analytics (dynamic) */}
             <Card className="dark-card">
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-dark-primary mb-2">Device & Platform Analytics</h3>
                 <p className="text-sm text-dark-secondary">User engagement across devices</p>
               </div>
-
               <div className="space-y-4">
                 {deviceData.map((device, index) => (
                   <div key={index} className="border border-dark-border rounded-lg p-4">
@@ -393,10 +459,9 @@ export function ReportsPage() {
                         <p className="text-xs text-dark-secondary">{device.percentage}%</p>
                       </div>
                     </div>
-                    
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-dark-secondary">Conversion Rate</span>
-                      <span className="text-dark-primary font-medium">{device.conversionRate}%</span>
+                      <span className="text-dark-primary font-medium">{device.conversionRate}</span>
                     </div>
                   </div>
                 ))}
@@ -463,7 +528,6 @@ export function ReportsPage() {
                 <h3 className="text-lg font-semibold text-dark-primary mb-2">E-commerce Conversion Funnel</h3>
                 <p className="text-sm text-dark-secondary">Journey from landing to purchase</p>
               </div>
-
               <div className="space-y-4">
                 {conversionFunnelData.map((stage, index) => (
                   <div key={index} className="relative">
@@ -488,13 +552,12 @@ export function ReportsPage() {
               </div>
             </Card>
 
-            {/* Geographic Performance */}
+            {/* Geographic Performance (dynamic) */}
             <Card className="dark-card">
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-dark-primary mb-2">Geographic Performance</h3>
                 <p className="text-sm text-dark-secondary">Revenue and engagement by country</p>
               </div>
-
               <div className="space-y-4">
                 {geoData.map((country, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border border-dark-border rounded-lg">
@@ -504,7 +567,7 @@ export function ReportsPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-dark-primary font-semibold">{formatCurrency(country.revenue)}</p>
-                      <p className="text-dark-secondary text-sm">{country.conversionRate}% conversion</p>
+                      <p className="text-dark-secondary text-sm">{country.conversionRate} conversion</p>
                     </div>
                   </div>
                 ))}

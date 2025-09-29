@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAppDispatch } from "../store/hooks";
+import { fetchGoogleAnalyticsData } from "../store/slices/google-ananyltics";
 import { loginUser } from "../store/slices/authSlice";
 import { login } from "../store/slices/authSlice";
 import { Button } from "./ui/button";
@@ -38,6 +39,9 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
     meta: false,
     analytics: false,
   });
+  const [gaProperties, setGAProperties] = useState<any[]>([]);
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +54,71 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
     return new URLSearchParams(window.location.search).get(name);
   }
 
+  // Fetch Google Analytics properties
+  const fetchGAProperties = async (accessToken?: string) => {
+    try {
+      let token = accessToken;
+      if (!token) {
+        const gaTokens = localStorage.getItem("ga_tokens");
+        if (gaTokens) {
+          token = JSON.parse(gaTokens).access_token;
+        }
+      }
+      const response = await axiosInstance.post(
+        "/google-analytics/list-properties",
+        { access_token: token },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data.properties || [];
+    } catch (err: any) {
+      throw err?.response?.data?.message || "Failed to fetch properties";
+    }
+  };
+
+  // Connect selected property
+  const handlePropertyConnect = async (propertyId: string) => {
+    setLoading(true);
+    try {
+      // Get access token from localStorage
+      const gaTokens = localStorage.getItem("ga_tokens");
+      const access_token = gaTokens ? JSON.parse(gaTokens).access_token : "";
+      // Set a default date range (last 30 days)
+      const endDate = new Date().toISOString().slice(0, 10);
+      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      // Call the slice thunk to fetch analytics data
+      const resultAction = await dispatch(fetchGoogleAnalyticsData({ access_token, propertyId, startDate, endDate }));
+      if (fetchGoogleAnalyticsData.fulfilled.match(resultAction)) {
+        localStorage.setItem("ga_selected_property", JSON.stringify({ propertyId, data: resultAction.payload }));
+        // Redirect to /app after successful connection
+        window.location.href = "/app";
+        return; // Prevent further modal logic
+      }
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <CheckCircle className="w-8 h-8 text-green-500" />
+          <div className="text-lg font-semibold">Property connected!</div>
+        </div>
+      );
+      setTimeout(() => {
+        setShowModal(false);
+        setShowPropertyModal(false);
+      }, 2000);
+    } catch (err: any) {
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <AlertCircle className="w-8 h-8 text-red-500" />
+          <div className="text-lg font-semibold">Failed to connect property</div>
+          <div className="text-sm text-red-500">{err.toString()}</div>
+        </div>
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle OAuth code in URL
   useEffect(() => {
-    const code = getQueryParam("code");
+  const code = getQueryParam("code"); // main focus
     const status = getQueryParam("status");
     if (code && status === "success") {
       setShowModal(true);
@@ -64,23 +130,19 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
       );
       setLoading(true);
       fetchGoogleTokens(code)
-        .then((tokens) => {
+        .then(async (tokens) => {
           localStorage.setItem("ga_tokens", JSON.stringify(tokens));
-          setModalContent(
-            <div className="flex flex-col items-center space-y-4 p-6">
-              <CheckCircle className="w-8 h-8 text-green-500" />
-              <div className="text-lg font-semibold">Connected successfully!</div>
-            </div>
-          );
           setConnections((prev) => ({ ...prev, analytics: true }));
-          setTimeout(() => {
-            setShowModal(false);
-            // Remove code param from URL
-            const url = new URL(window.location.href);
-            url.searchParams.delete("code");
-            url.searchParams.delete("status");
-            window.history.replaceState({}, document.title, url.pathname);
-          }, 1500);
+          // Fetch properties after successful connection, using token from localStorage
+          const properties = await fetchGAProperties();
+          setGAProperties(properties);
+          setShowPropertyModal(true);
+          setShowModal(false);
+          // Remove code param from URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete("code");
+          url.searchParams.delete("status");
+          window.history.replaceState({}, document.title, url.pathname);
         })
         .catch((err) => {
           setModalContent(
@@ -106,6 +168,68 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
     );
   };
 
+  // Modal for property selection
+ const PropertyModal = ({ open, properties }: { open: boolean; properties: any[] }) => {
+  if (!open) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Select Property
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Choose a Google Analytics property to connect
+          </p>
+        </div>
+
+        {/* Properties List */}
+        <div className="px-6 py-4 max-h-96 overflow-y-auto">
+          <ul className="space-y-2">
+            {properties.map((prop: any) => (
+              <li key={prop.name}>
+                <button
+                  className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-all duration-200 group"
+                  onClick={() => handlePropertyConnect(prop.name)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                        {prop.displayName}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                          {prop.currencyCode}
+                        </span>
+                        <span>•</span>
+                        <span>{prop.timeZone.split('/')[1]}</span>
+                      </div>
+                    </div>
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-800">
+          <button
+            className="w-full px-4 py-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            onClick={() => setShowPropertyModal(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
   // Handler for Google Analytics connect
   const handleGoogleAnalyticsConnect = async () => {
     setLoading(true);
@@ -186,6 +310,7 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
   return (
     <>
       <Modal open={showModal}>{modalContent}</Modal>
+      <PropertyModal open={showPropertyModal} properties={gaProperties} />
       <div className="min-h-screen flex justify-center items-center bg-dark-bg">
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-12">
