@@ -25,6 +25,29 @@ export const fetchShopifyConnectUrl = async (userId: string, shopDomain: string)
     throw error.response?.data?.message || error.message || 'Failed to fetch Shopify connect URL';
   }
 };
+
+// Meta Ads Connect
+export const fetchMetaConnectUrl = async (userId: string, redirectUrl: string): Promise<string> => {
+  try {
+    const redirectUrl = "https://ai-automation1-6o3m.onrender.com/api/v1/integrations/meta-ads/callback";
+    const response = await axiosInstance.post(
+      `/v1/integrations/meta-ads/connect?userId=${userId}&redirectUrl=${encodeURIComponent(redirectUrl)}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    // API returns { success, data: { url } } or similar
+    if (response.data && response.data.data && response.data.data.url) {
+      return response.data.data.url;
+    }
+    return response.data.url || response.data.redirectUrl || response.data;
+  } catch (error: any) {
+    throw error.response?.data?.message || error.message || 'Failed to fetch Meta connect URL';
+  }
+};
+
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import axiosInstance from '../../../axiosConfig';
 

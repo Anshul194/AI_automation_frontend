@@ -51,6 +51,44 @@ export function ReportsPage() {
   ];
 
 
+    // Demographics data
+  const ageData = [
+    { age: '18-24', users: 8450, percentage: 24.1, revenue: 425000, conversionRate: 2.8 },
+    { age: '25-34', users: 12640, percentage: 36.1, revenue: 780000, conversionRate: 4.2 },
+    { age: '35-44', users: 9280, percentage: 26.5, revenue: 695000, conversionRate: 4.8 },
+    { age: '45-54', users: 3210, percentage: 9.2, revenue: 289000, conversionRate: 3.9 },
+    { age: '55+', users: 1420, percentage: 4.1, revenue: 156000, conversionRate: 3.2 }
+  ];
+
+  const genderData = [
+    { gender: 'Female', users: 18960, percentage: 54.2, revenue: 1245000, conversionRate: 4.3 },
+    { gender: 'Male', users: 15140, percentage: 43.3, revenue: 985000, conversionRate: 3.8 },
+    { gender: 'Non-binary', users: 900, percentage: 2.5, revenue: 115000, conversionRate: 3.2 }
+  ];
+
+  const locationData = [
+    { location: 'Delhi NCR', users: 6540, percentage: 18.7, revenue: 1125000, conversionRate: 4.5 },
+    { location: 'Mumbai', users: 5680, percentage: 16.2, revenue: 895000, conversionRate: 4.8 },
+    { location: 'Bangalore', users: 4250, percentage: 12.1, revenue: 685000, conversionRate: 4.3 },
+    { location: 'Chennai', users: 3180, percentage: 9.1, revenue: 485000, conversionRate: 3.9 },
+    { location: 'Kolkata', users: 2840, percentage: 8.1, revenue: 425000, conversionRate: 3.6 },
+    { location: 'Pune', users: 2450, percentage: 7.0, revenue: 398000, conversionRate: 4.0 },
+    { location: 'Hyderabad', users: 2180, percentage: 6.2, revenue: 356000, conversionRate: 3.8 },
+    { location: 'Others', users: 8880, percentage: 25.4, revenue: 1250000, conversionRate: 3.5 }
+  ];
+
+  const placementData = [
+    { placement: 'Instagram Reels', impressions: 320000, clicks: 18560, ctr: 5.8, spend: 145000, roas: 7.2 },
+    { placement: 'Facebook Feed', impressions: 245000, clicks: 12250, ctr: 5.0, spend: 125000, roas: 6.2 },
+    { placement: 'Instagram Stories', impressions: 189000, clicks: 8505, ctr: 4.5, spend: 95000, roas: 4.8 },
+    { placement: 'Instagram Feed', impressions: 156000, clicks: 6240, ctr: 4.0, spend: 78000, roas: 5.1 },
+    { placement: 'Facebook Stories', impressions: 98000, clicks: 2940, ctr: 3.0, spend: 49000, roas: 3.9 },
+    { placement: 'Messenger', impressions: 67000, clicks: 1675, ctr: 2.5, spend: 33500, roas: 3.2 },
+    { placement: 'Audience Network', impressions: 45000, clicks: 900, ctr: 2.0, spend: 22500, roas: 2.8 }
+  ];
+
+
+
   useEffect(() => {
     const stored = localStorage.getItem("ga_selected_property");
     if (stored) {

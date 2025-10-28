@@ -28,7 +28,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import axiosInstance from "../../axiosConfig";
-import { fetchGoogleAuthUrl, fetchGoogleTokens, fetchShopifyConnectUrl } from "../store/slices/connection";
+import { fetchGoogleAuthUrl, fetchGoogleTokens, fetchShopifyConnectUrl, fetchMetaConnectUrl } from "../store/slices/connection";
 
 type LoginStep = "login" | "integrations" | "analyzing";
 
@@ -90,7 +90,7 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
       if (fetchGoogleAnalyticsData.fulfilled.match(resultAction)) {
         localStorage.setItem("ga_selected_property", JSON.stringify({ propertyId, data: resultAction.payload }));
         // Redirect to /app after successful connection
-        window.location.href = "/app";
+        // window.location.href = "/app";
         return; // Prevent further modal logic
       }
       setModalContent(
@@ -124,8 +124,10 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
   const integration = getQueryParam("integration");
   const rawData = getQueryParam("data");
 
+  console.log("ConnectPage URL params:", { code, status, integration, rawData });
+
   // ---- GOOGLE ANALYTICS FLOW ----
-  if (code && status === "success" && integration !== "shopify") {
+  if (code && status === "success" && integration !== "shopify"&& integration !== "meta-ads") {
     setShowModal(true);
     setModalContent(
       <div className="flex flex-col items-center space-y-4 p-6">
@@ -164,9 +166,10 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
       })
       .finally(() => setLoading(false));
   }
+  
 
   // ---- SHOPIFY FLOW ----
-  else if (code && status === "success" && integration === "shopify" && rawData) {
+  else if (code && status === "success" && integration === "shopify"&& rawData ) {
     try {
       const decodedData = decodeURIComponent(rawData);
       const parsedData = JSON.parse(decodedData);
@@ -203,6 +206,46 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
       setTimeout(() => setShowModal(false), 3000); // ⏳ Auto-close error modal too
     }
   }
+
+   else if (code && status === "success" && integration === "meta-ads"&& rawData ) {
+    try {
+      const decodedData = decodeURIComponent(rawData);
+      const parsedData = JSON.parse(decodedData);
+
+      // ✅ Save to localStorage
+      localStorage.setItem("meta_data", JSON.stringify(parsedData));
+
+      // ✅ Show success modal
+      setShowModal(true);
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <CheckCircle className="w-8 h-8 text-green-500" />
+          <div className="text-lg font-semibold">Meta Ads connected successfully!</div>
+        </div>
+      );
+
+      setConnections((prev) => ({ ...prev, meta: true }));
+
+      // ✅ Clean URL
+      const url = new URL(window.location.href);
+      url.search = "";
+      window.history.replaceState({}, document.title, url.pathname);
+
+      // ⏳ Auto-close modal after 3 seconds
+      setTimeout(() => setShowModal(false), 3000);
+    } catch (err) {
+      console.error("Failed to parse Shopify data:", err);
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <AlertCircle className="w-8 h-8 text-red-500" />
+          <div className="text-lg font-semibold">Failed to connect </div>
+        </div>
+      );
+      setTimeout(() => setShowModal(false), 3000); // ⏳ Auto-close error modal too
+    }
+  }
+
+
 }, []);
 
 
@@ -344,20 +387,63 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const handleContinue = () => {
-    // Simulate analyzing step or call onComplete
+  // Handler for Meta Ads connect
+  const handleMetaConnect = async () => {
+    setLoading(true);
+    setError(null);
     setShowModal(true);
     setModalContent(
       <div className="flex flex-col items-center space-y-4 p-6">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-        <div className="text-lg font-semibold">Analyzing your connections...</div>
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <div className="text-lg font-semibold">Connecting to Meta Ads...</div>
       </div>
     );
-    setTimeout(() => {
-      setShowModal(false);
-      if (onComplete) onComplete();
-    }, 1200);
+    try {
+      // Get userId from localStorage user key
+      const userStr = localStorage.getItem("user");
+      const userId = userStr ? JSON.parse(userStr)._id : null;
+      if (!userId) throw new Error("User ID not found in localStorage");
+      const url = await fetchMetaConnectUrl(userId);
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <CheckCircle className="w-8 h-8 text-green-500" />
+          <div className="text-lg font-semibold">Redirecting to Meta Ads...</div>
+        </div>
+      );
+      setTimeout(() => {
+        window.open(url, "_blank");
+        setShowModal(false);
+      }, 1000);
+    } catch (err: any) {
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <AlertCircle className="w-8 h-8 text-red-500" />
+          <div className="text-lg font-semibold">{err?.toString?.() || "Failed to connect to Meta Ads"}</div>
+        </div>
+      );
+      setTimeout(() => setShowModal(false), 2000);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleContinue = () => {
+    // Redirect to dashboard instead of showing modal and calling onComplete
+    window.location.href = "/app";
+  };
+
+  // Initialize connections from localStorage on mount
+  useEffect(() => {
+    const shopifyData = localStorage.getItem("shopify_data");
+    const gaTokens = localStorage.getItem("ga_tokens");
+    const gaProperty = localStorage.getItem("ga_selected_property");
+    const metaData = localStorage.getItem("meta_data");
+    setConnections({
+      shopify: !!shopifyData,
+      meta: !!metaData,
+      analytics: !!(gaTokens && gaProperty),
+    });
+  }, []);
 
   return (
     <>
@@ -493,13 +579,13 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
                   </div>
                 )}
                 <button
-                  onClick={() => setConnections(prev => ({ ...prev, meta: !prev.meta }))}
-                  className={`px-3 py-2 rounded-full  font-medium transition-all ${
+                  onClick={handleMetaConnect}
+                  className={`px-3 py-2 rounded-full font-medium transition-all ${
                     connections.meta
                       ? "bg-dark-hover text-dark-secondary border border-dark-border hover:bg-dark-border"
                       : "bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700"
                   }`}
-                  disabled={loading}
+                  disabled={connections.meta || loading}
                 >
                   {connections.meta ? "Disconnect" : "Connect"}
                 </button>
