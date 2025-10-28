@@ -116,46 +116,98 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  // Handle OAuth code in URL
-  useEffect(() => {
-  const code = getQueryParam("code"); // main focus
-    const status = getQueryParam("status");
-    if (code && status === "success") {
+ 
+ useEffect(() => {
+  const getQueryParam = (key) => new URLSearchParams(window.location.search).get(key);
+  const code = getQueryParam("code");
+  const status = getQueryParam("status");
+  const integration = getQueryParam("integration");
+  const rawData = getQueryParam("data");
+
+  // ---- GOOGLE ANALYTICS FLOW ----
+  if (code && status === "success" && integration !== "shopify") {
+    setShowModal(true);
+    setModalContent(
+      <div className="flex flex-col items-center space-y-4 p-6">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <div className="text-lg font-semibold">Connecting to Google Analytics...</div>
+      </div>
+    );
+    setLoading(true);
+
+    fetchGoogleTokens(code)
+      .then(async (tokens) => {
+        localStorage.setItem("ga_tokens", JSON.stringify(tokens));
+        setConnections((prev) => ({ ...prev, analytics: true }));
+
+        // Fetch GA properties using stored tokens
+        const properties = await fetchGAProperties();
+        setGAProperties(properties);
+        setShowPropertyModal(true);
+        setShowModal(false);
+
+        // Clean up URL params
+        const url = new URL(window.location.href);
+        url.searchParams.delete("code");
+        url.searchParams.delete("status");
+        window.history.replaceState({}, document.title, url.pathname);
+      })
+      .catch((err) => {
+        console.error("GA connection failed:", err);
+        setModalContent(
+          <div className="flex flex-col items-center space-y-4 p-6">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+            <div className="text-lg font-semibold">Failed to connect Google Analytics</div>
+          </div>
+        );
+        setTimeout(() => setShowModal(false), 3000); // ⏳ Close after 3s
+      })
+      .finally(() => setLoading(false));
+  }
+
+  // ---- SHOPIFY FLOW ----
+  else if (code && status === "success" && integration === "shopify" && rawData) {
+    try {
+      const decodedData = decodeURIComponent(rawData);
+      const parsedData = JSON.parse(decodedData);
+
+      // ✅ Save to localStorage
+      localStorage.setItem("shopify_data", JSON.stringify(parsedData));
+
+      // ✅ Show success modal
       setShowModal(true);
       setModalContent(
         <div className="flex flex-col items-center space-y-4 p-6">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-          <div className="text-lg font-semibold">Connecting to Google Analytics...</div>
+          <CheckCircle className="w-8 h-8 text-green-500" />
+          <div className="text-lg font-semibold">Shopify connected successfully!</div>
         </div>
       );
-      setLoading(true);
-      fetchGoogleTokens(code)
-        .then(async (tokens) => {
-          localStorage.setItem("ga_tokens", JSON.stringify(tokens));
-          setConnections((prev) => ({ ...prev, analytics: true }));
-          // Fetch properties after successful connection, using token from localStorage
-          const properties = await fetchGAProperties();
-          setGAProperties(properties);
-          setShowPropertyModal(true);
-          setShowModal(false);
-          // Remove code param from URL
-          const url = new URL(window.location.href);
-          url.searchParams.delete("code");
-          url.searchParams.delete("status");
-          window.history.replaceState({}, document.title, url.pathname);
-        })
-        .catch((err) => {
-          setModalContent(
-            <div className="flex flex-col items-center space-y-4 p-6">
-              <AlertCircle className="w-8 h-8 text-red-500" />
-              <div className="text-lg font-semibold">Failed to connect: {err?.toString?.() || "Unknown error"}</div>
-            </div>
-          );
-          setTimeout(() => setShowModal(false), 2000);
-        })
-        .finally(() => setLoading(false));
+
+      setConnections((prev) => ({ ...prev, shopify: true }));
+
+      // ✅ Clean URL
+      const url = new URL(window.location.href);
+      url.search = "";
+      window.history.replaceState({}, document.title, url.pathname);
+
+      // ⏳ Auto-close modal after 3 seconds
+      setTimeout(() => setShowModal(false), 3000);
+    } catch (err) {
+      console.error("Failed to parse Shopify data:", err);
+      setModalContent(
+        <div className="flex flex-col items-center space-y-4 p-6">
+          <AlertCircle className="w-8 h-8 text-red-500" />
+          <div className="text-lg font-semibold">Failed to connect Shopify</div>
+        </div>
+      );
+      setTimeout(() => setShowModal(false), 3000); // ⏳ Auto-close error modal too
     }
-  }, []);
+  }
+}, []);
+
+
+
+
   // Simple modal component
   const Modal = ({ open, children }: { open: boolean; children: React.ReactNode }) => {
     if (!open) return null;

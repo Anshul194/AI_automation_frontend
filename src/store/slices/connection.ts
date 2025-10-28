@@ -8,7 +8,7 @@ export const fetchShopifyConnectUrl = async (userId: string, shopDomain: string)
       {
         params: {
           userId,
-          redirectUrl: "http://localhost:3000/api/v1/integrations/shopify/connect",
+          redirectUrl: "http://localhost:3000/api/v1/integrations/shopify/callback",
         },
         headers: {
           Authorization: `Bearer ${accessToken}`,
