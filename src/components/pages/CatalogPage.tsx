@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchCatalogDashboard, fetchCatalogProducts, setPage } from '../../store/slices/catalogSlice';
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -32,158 +34,84 @@ type ViewMode = 'grid' | 'table';
 type SortOption = 'none' | 'aov-asc' | 'aov-desc' | 'roas-asc' | 'roas-desc' | 'revenue-asc' | 'revenue-desc' | 'rto-asc' | 'rto-desc';
 
 export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (productId: number) => void }) {
+  const dispatch = useAppDispatch();
+  const { loading, error, cards, lists, products: catalogProducts, totalValues, totalPages, currentPage } = useAppSelector(state => state.catalog);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('none');
 
-  // Mock product data
-  const products = [
-    {
-      id: 1,
-      name: "Premium Wireless Headphones",
-      image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop",
-      roas: 5.2,
-      rto: 8,
-      netSales: 850000,
-      orders: 342,
-      aov: 2485,
-      trend: "up",
-      isTopRevenue: true
-    },
-    {
-      id: 2,
-      name: "Smart Fitness Watch",
-      image: "https://images.unsplash.com/photo-1579586337278-3f436f25d4d5?w=300&h=300&fit=crop",
-      roas: 4.8,
-      rto: 12,
-      netSales: 720000,
-      orders: 298,
-      aov: 2416,
-      trend: "up",
-      isTopRevenue: false
-    },
-    {
-      id: 3,
-      name: "Organic Skincare Set",
-      image: "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=300&h=300&fit=crop",
-      roas: 4.1,
-      rto: 15,
-      netSales: 650000,
-      orders: 425,
-      aov: 1529,
-      trend: "up",
-      isTopRevenue: false
-    },
-    {
-      id: 4,
-      name: "Premium Coffee Beans",
-      image: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=300&h=300&fit=crop",
-      roas: 3.8,
-      rto: 6,
-      netSales: 420000,
-      orders: 680,
-      aov: 618,
-      trend: "up",
-      isTopRevenue: false
-    },
-    {
-      id: 5,
-      name: "Designer Sunglasses",
-      image: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=300&h=300&fit=crop",
-      roas: 3.2,
-      rto: 25,
-      netSales: 380000,
-      orders: 156,
-      aov: 2436,
-      trend: "down",
-      isTopRevenue: false
-    },
-    {
-      id: 6,
-      name: "Yoga Mat Pro",
-      image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=300&h=300&fit=crop",
-      roas: 2.9,
-      rto: 18,
-      netSales: 290000,
-      orders: 234,
-      aov: 1239,
-      trend: "down",
-      isTopRevenue: false
-    }
-  ];
+  // TODO: Replace with dynamic userId
+  const userId = '68c900ac51647b3b7dbab556';
+
+  useEffect(() => {
+    dispatch(fetchCatalogDashboard(userId));
+    dispatch(fetchCatalogProducts({ userId, page: 1 }));
+  }, [dispatch]);
+
+  // API-driven product data
+  const apiProducts = catalogProducts || [];
+  const bestPerformingProducts = lists?.bestPerforming || [];
+  const worstPerformingProducts = lists?.worstPerforming || [];
+  const topRevenueProducts = lists?.topRevenue || [];
 
   // Filter and sort products
-  let filteredProducts = products.filter(product =>
+  let filteredProducts = apiProducts.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Apply sorting
+  // Apply sorting (API fields: revenue, rtoPercentage, roas, quantitySold, etc.)
   switch (sortBy) {
     case 'aov-asc':
-      filteredProducts = [...filteredProducts].sort((a, b) => a.aov - b.aov);
+      filteredProducts = [...filteredProducts].sort((a, b) => (a.revenue / (a.quantitySold || 1)) - (b.revenue / (b.quantitySold || 1)));
       break;
     case 'aov-desc':
-      filteredProducts = [...filteredProducts].sort((a, b) => b.aov - a.aov);
+      filteredProducts = [...filteredProducts].sort((a, b) => (b.revenue / (b.quantitySold || 1)) - (a.revenue / (a.quantitySold || 1)));
       break;
     case 'roas-asc':
-      filteredProducts = [...filteredProducts].sort((a, b) => a.roas - b.roas);
+      filteredProducts = [...filteredProducts].sort((a, b) => (a.roas || 0) - (b.roas || 0));
       break;
     case 'roas-desc':
-      filteredProducts = [...filteredProducts].sort((a, b) => b.roas - a.roas);
+      filteredProducts = [...filteredProducts].sort((a, b) => (b.roas || 0) - (a.roas || 0));
       break;
     case 'revenue-asc':
-      filteredProducts = [...filteredProducts].sort((a, b) => a.netSales - b.netSales);
+      filteredProducts = [...filteredProducts].sort((a, b) => a.revenue - b.revenue);
       break;
     case 'revenue-desc':
-      filteredProducts = [...filteredProducts].sort((a, b) => b.netSales - a.netSales);
+      filteredProducts = [...filteredProducts].sort((a, b) => b.revenue - a.revenue);
       break;
     case 'rto-asc':
-      filteredProducts = [...filteredProducts].sort((a, b) => a.rto - b.rto);
+      filteredProducts = [...filteredProducts].sort((a, b) => a.rtoPercentage - b.rtoPercentage);
       break;
     case 'rto-desc':
-      filteredProducts = [...filteredProducts].sort((a, b) => b.rto - a.rto);
+      filteredProducts = [...filteredProducts].sort((a, b) => b.rtoPercentage - a.rtoPercentage);
       break;
     default:
       // No sorting applied
       break;
   }
 
-  // Calculate performance rankings
-  const bestPerformingProducts = [...products]
-    .sort((a, b) => b.roas - a.roas)
-    .slice(0, 3);
-
-  const worstPerformingProducts = [...products]
-    .sort((a, b) => b.rto - a.rto)
-    .slice(0, 3);
-
-  const topRevenueProducts = [...products]
-    .sort((a, b) => b.netSales - a.netSales)
-    .slice(0, 3);
+  // Rankings now come from API lists
 
   // Helper function to get performance tags for a product
-  const getPerformanceTags = (product: typeof products[0]) => {
+  const getPerformanceTags = (product: any) => {
     const tags = [];
-    
-    if (bestPerformingProducts.some(p => p.id === product.id)) {
-      const rank = bestPerformingProducts.findIndex(p => p.id === product.id) + 1;
+    if (bestPerformingProducts.some((p: any) => p.productId === product.productId)) {
+      const rank = bestPerformingProducts.findIndex((p: any) => p.productId === product.productId) + 1;
       tags.push({ type: 'best', rank, label: `#${rank} Best ROAS` });
     }
-    
-    if (worstPerformingProducts.some(p => p.id === product.id)) {
-      const rank = worstPerformingProducts.findIndex(p => p.id === product.id) + 1;
+    if (worstPerformingProducts.some((p: any) => p.productId === product.productId)) {
+      const rank = worstPerformingProducts.findIndex((p: any) => p.productId === product.productId) + 1;
       tags.push({ type: 'worst', rank, label: `#${rank} High RTO` });
     }
-    
-    if (topRevenueProducts.some(p => p.id === product.id)) {
-      const rank = topRevenueProducts.findIndex(p => p.id === product.id) + 1;
+    if (topRevenueProducts.some((p: any) => p.productId === product.productId)) {
+      const rank = topRevenueProducts.findIndex((p: any) => p.productId === product.productId) + 1;
       tags.push({ type: 'revenue', rank, label: `#${rank} Revenue` });
     }
-    
     return tags;
   };
 
   const formatCurrency = (amount: number) => {
+    if (!amount) return '₹0';
     if (amount >= 100000) {
       return `₹${(amount / 100000).toFixed(1)}L`;
     }
@@ -204,50 +132,49 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
     }
   };
 
-  const ProductCard = ({ product }: { product: typeof products[0] }) => {
+  const ProductCard = ({ product }: { product: any }) => {
     const performanceTags = getPerformanceTags(product);
     
     const handleViewTrend = () => {
-      onNavigateToTrend?.(product.id);
+      onNavigateToTrend?.(product.productId);
     };
     
     return (
-      <Card className="dark-card p-6 hover:ring-2 hover:ring-dark-cta transition-all duration-200">
-        <div className="space-y-4">
-          {/* Product Image */}
-          <div className="relative">
-            <ImageWithFallback
-              src={product.image}
-              alt={product.name}
-              className="w-full h-48 object-cover rounded-lg"
-            />
-            
-            {/* Performance Tags */}
-            <div className="absolute top-2 right-2 space-y-1">
-              {performanceTags.map((tag, index) => (
-                <Badge 
-                  key={`${tag.type}-${tag.rank}`}
-                  className={`block text-xs font-semibold ${
-                    tag.type === 'best' 
-                      ? 'bg-green-600/90 text-white border-green-500' 
-                      : tag.type === 'worst'
-                      ? 'bg-red-600/90 text-white border-red-500'
-                      : 'bg-blue-600/90 text-white border-blue-500'
-                  }`}
-                >
-                  {tag.type === 'best' && <Award className="h-3 w-3 inline mr-1" />}
-                  {tag.type === 'worst' && <AlertTriangle className="h-3 w-3 inline mr-1" />}
-                  {tag.type === 'revenue' && <Crown className="h-3 w-3 inline mr-1" />}
-                  {tag.label}
-                </Badge>
-              ))}
-            </div>
+    <Card className="dark-card p-6 hover:ring-2 hover:ring-dark-cta transition-all duration-200">
+      <div className="space-y-4">
+        {/* Product Image */}
+        <div className="relative">
+          <ImageWithFallback
+            src={product.image ?? undefined}
+            alt={product.name}
+            className="w-full h-48 object-cover rounded-lg"
+          />
+          {/* Performance Tags */}
+          <div className="absolute top-2 right-2 space-y-1">
+            {performanceTags.map((tag, index) => (
+              <Badge
+                key={`${tag.type}-${tag.rank}`}
+                className={`block text-xs font-semibold ${
+                  tag.type === 'best'
+                    ? 'bg-green-600/90 text-white border-green-500'
+                    : tag.type === 'worst'
+                    ? 'bg-red-600/90 text-white border-red-500'
+                    : 'bg-blue-600/90 text-white border-blue-500'
+                }`}
+              >
+                {tag.type === 'best' && <Award className="h-3 w-3 inline mr-1" />}
+                {tag.type === 'worst' && <AlertTriangle className="h-3 w-3 inline mr-1" />}
+                {tag.type === 'revenue' && <Crown className="h-3 w-3 inline mr-1" />}
+                {tag.label}
+              </Badge>
+            ))}
           </div>
+        </div>
 
         {/* Product Info */}
         <div className="space-y-3">
           <h3 className="font-semibold text-dark-primary">{product.name}</h3>
-          
+
           {/* Metrics Grid */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-dark-hover rounded-lg">
@@ -255,38 +182,38 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
                 <TrendingUp className="h-4 w-4 text-dark-cta" />
                 <span className="text-sm text-dark-secondary">ROAS</span>
               </div>
-              <div className={`text-lg font-bold ${product.roas >= 4 ? 'text-dark-positive' : product.roas >= 3 ? 'text-dark-cta' : 'text-dark-negative'}`}>
-                {product.roas}x
+              <div className={`text-lg font-bold ${product.roas != null && product.roas >= 4 ? 'text-dark-positive' : product.roas != null && product.roas >= 3 ? 'text-dark-cta' : 'text-dark-negative'}`}>
+                {product.roas != null ? product.roas + 'x' : '-'}
               </div>
             </div>
-            
+
             <div className="p-3 bg-dark-hover rounded-lg">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-dark-secondary" />
                 <span className="text-sm text-dark-secondary">RTO</span>
               </div>
-              <div className={`text-lg font-bold ${product.rto <= 10 ? 'text-dark-positive' : product.rto <= 20 ? 'text-dark-cta' : 'text-dark-negative'}`}>
-                {product.rto}%
+              <div className={`text-lg font-bold ${product.rtoPercentage != null && product.rtoPercentage <= 10 ? 'text-dark-positive' : product.rtoPercentage != null && product.rtoPercentage <= 20 ? 'text-dark-cta' : 'text-dark-negative'}`}>
+                {product.rtoPercentage != null ? product.rtoPercentage + '%' : '-'}
               </div>
             </div>
-            
+
             <div className="p-3 bg-dark-hover rounded-lg">
               <div className="flex items-center gap-2">
                 <IndianRupee className="h-4 w-4 text-dark-positive" />
-                <span className="text-sm text-dark-secondary">Net Sales</span>
+                <span className="text-sm text-dark-secondary">Revenue</span>
               </div>
               <div className="text-lg font-bold text-dark-primary">
-                {formatCurrency(product.netSales)}
+                {formatCurrency(product.revenue)}
               </div>
             </div>
-            
+
             <div className="p-3 bg-dark-hover rounded-lg">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4 text-dark-secondary" />
                 <span className="text-sm text-dark-secondary">Orders</span>
               </div>
               <div className="text-lg font-bold text-dark-primary">
-                {product.orders}
+                {product.quantitySold}
               </div>
             </div>
           </div>
@@ -295,8 +222,9 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
           <div className="flex items-center justify-between p-3 bg-dark-hover rounded-lg">
             <span className="text-sm text-dark-secondary">Avg Order Value</span>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-dark-primary">₹{product.aov.toLocaleString()}</span>
-              {product.trend === 'up' ? (
+              <span className="font-bold text-dark-primary">₹{product.quantitySold ? Math.round(product.revenue / product.quantitySold).toLocaleString() : '0'}</span>
+              {/* No trend info in API, so just show up arrow if revenue > 0 */}
+              {product.revenue > 0 ? (
                 <TrendingUp className="h-4 w-4 text-dark-positive" />
               ) : (
                 <TrendingDown className="h-4 w-4 text-dark-negative" />
@@ -305,7 +233,7 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
           </div>
 
           {/* View Trend Button */}
-          <Button 
+          <Button
             onClick={handleViewTrend}
             className="w-full dark-button-secondary flex items-center gap-2 mt-4"
             size="sm"
@@ -319,7 +247,7 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
     );
   };
 
-  const ProductTableRow = ({ product }: { product: typeof products[0] }) => {
+  const ProductTableRow = ({ product }: { product: any }) => {
     const performanceTags = getPerformanceTags(product);
     
     return (
@@ -327,21 +255,20 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
         <td className="py-4 px-6">
           <div className="flex items-center gap-4">
             <ImageWithFallback
-              src={product.image}
+              src={product.image ?? undefined}
               alt={product.name}
               className="w-12 h-12 object-cover rounded-lg"
             />
             <div>
               <div className="font-medium text-dark-primary">{product.name}</div>
-              
               {/* Performance Tags */}
               <div className="flex flex-wrap gap-1 mt-2">
                 {performanceTags.map((tag, index) => (
-                  <Badge 
+                  <Badge
                     key={`${tag.type}-${tag.rank}`}
                     className={`text-xs font-semibold ${
-                      tag.type === 'best' 
-                        ? 'bg-green-600/20 text-green-400 border-green-600/30' 
+                      tag.type === 'best'
+                        ? 'bg-green-600/20 text-green-400 border-green-600/30'
                         : tag.type === 'worst'
                         ? 'bg-red-600/20 text-red-400 border-red-600/30'
                         : 'bg-blue-600/20 text-blue-400 border-blue-600/30'
@@ -357,33 +284,33 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
             </div>
           </div>
         </td>
-      <td className="py-4 px-6">
-        <div className={`font-bold ${product.roas >= 4 ? 'text-dark-positive' : product.roas >= 3 ? 'text-dark-cta' : 'text-dark-negative'}`}>
-          {product.roas}x
-        </div>
-      </td>
-      <td className="py-4 px-6">
-        <div className={`font-bold ${product.rto <= 10 ? 'text-dark-positive' : product.rto <= 20 ? 'text-dark-cta' : 'text-dark-negative'}`}>
-          {product.rto}%
-        </div>
-      </td>
-      <td className="py-4 px-6">
-        <div className="font-bold text-dark-primary">{formatCurrency(product.netSales)}</div>
-      </td>
-      <td className="py-4 px-6">
-        <div className="font-medium text-dark-primary">{product.orders}</div>
-      </td>
-      <td className="py-4 px-6">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-dark-primary">₹{product.aov.toLocaleString()}</span>
-          {product.trend === 'up' ? (
-            <TrendingUp className="h-4 w-4 text-dark-positive" />
-          ) : (
-            <TrendingDown className="h-4 w-4 text-dark-negative" />
-          )}
-        </div>
-      </td>
-    </tr>
+        <td className="py-4 px-6">
+          <div className={`font-bold ${product.roas != null && product.roas >= 4 ? 'text-dark-positive' : product.roas != null && product.roas >= 3 ? 'text-dark-cta' : 'text-dark-negative'}`}>
+            {product.roas != null ? product.roas + 'x' : '-'}
+          </div>
+        </td>
+        <td className="py-4 px-6">
+          <div className={`font-bold ${product.rtoPercentage != null && product.rtoPercentage <= 10 ? 'text-dark-positive' : product.rtoPercentage != null && product.rtoPercentage <= 20 ? 'text-dark-cta' : 'text-dark-negative'}`}>
+            {product.rtoPercentage != null ? product.rtoPercentage + '%' : '-'}
+          </div>
+        </td>
+        <td className="py-4 px-6">
+          <div className="font-bold text-dark-primary">{formatCurrency(product.revenue)}</div>
+        </td>
+        <td className="py-4 px-6">
+          <div className="font-medium text-dark-primary">{product.quantitySold}</div>
+        </td>
+        <td className="py-4 px-6">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-dark-primary">₹{product.quantitySold ? Math.round(product.revenue / product.quantitySold).toLocaleString() : '0'}</span>
+            {product.revenue > 0 ? (
+              <TrendingUp className="h-4 w-4 text-dark-positive" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-dark-negative" />
+            )}
+          </div>
+        </td>
+      </tr>
     );
   };
 
@@ -425,41 +352,38 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
               <p className="text-sm text-dark-secondary">Total Products</p>
               <Package className="h-4 w-4 text-dark-cta" />
             </div>
-            <p className="text-2xl font-bold text-dark-primary">{products.length}</p>
-            <p className="text-xs text-dark-positive">+2 this month</p>
+            <p className="text-2xl font-bold text-dark-primary">{cards?.totalProducts ?? 0}</p>
+            {/* <p className="text-xs text-dark-positive">+2 this month</p> */}
           </div>
         </Card>
-        
         <Card className="dark-card p-6">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm text-dark-secondary">Avg ROAS</p>
               <TrendingUp className="h-4 w-4 text-dark-positive" />
             </div>
-            <p className="text-2xl font-bold text-dark-primary">3.8x</p>
-            <p className="text-xs text-dark-positive">+0.3x from last month</p>
+            <p className="text-2xl font-bold text-dark-primary">{cards?.avgRoas ?? 0}x</p>
+            {/* <p className="text-xs text-dark-positive">+0.3x from last month</p> */}
           </div>
         </Card>
-        
         <Card className="dark-card p-6">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm text-dark-secondary">Total Revenue</p>
               <IndianRupee className="h-4 w-4 text-dark-positive" />
             </div>
-            <p className="text-2xl font-bold text-dark-primary">₹33.1L</p>
-            <p className="text-xs text-dark-positive">+18.4% from last month</p>
+            <p className="text-2xl font-bold text-dark-primary">{formatCurrency(cards?.totalRevenue ?? 0)}</p>
+            {/* <p className="text-xs text-dark-positive">+18.4% from last month</p> */}
           </div>
         </Card>
-        
         <Card className="dark-card p-6">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm text-dark-secondary">Avg RTO</p>
               <Package className="h-4 w-4 text-dark-negative" />
             </div>
-            <p className="text-2xl font-bold text-dark-primary">14%</p>
-            <p className="text-xs text-dark-negative">+2.1% from last month</p>
+            <p className="text-2xl font-bold text-dark-primary">{cards?.avgRto ?? 0}%</p>
+            {/* <p className="text-xs text-dark-negative">+2.1% from last month</p> */}
           </div>
         </Card>
       </div>
@@ -480,11 +404,11 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
             </div>
             
             <div className="space-y-3">
-              {bestPerformingProducts.map((product, index) => (
-                <div key={product.id} className="flex items-center gap-3 p-3 bg-dark-hover rounded-lg">
+              {bestPerformingProducts.map((product: any, index: number) => (
+                <div key={product.productId} className="flex items-center gap-3 p-3 bg-dark-hover rounded-lg">
                   <div className="relative">
                     <ImageWithFallback
-                      src={product.image}
+                      src={product.image ?? undefined}
                       alt={product.name}
                       className="w-12 h-12 object-cover rounded-lg"
                     />
@@ -499,9 +423,9 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
                       {product.name}
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-dark-positive font-bold">{product.roas}x ROAS</span>
+                      <span className="text-dark-positive font-bold">{product.roas != null ? product.roas + 'x ROAS' : '-'}</span>
                       <span className="text-dark-secondary">•</span>
-                      <span className="text-dark-secondary">{formatCurrency(product.netSales)}</span>
+                      <span className="text-dark-secondary">{formatCurrency(product.revenue)}</span>
                     </div>
                   </div>
                   <Badge className="bg-green-600/20 text-green-400 text-xs">
@@ -527,10 +451,10 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
             </div>
             
             <div className="space-y-3">
-              {worstPerformingProducts.map((product, index) => (
-                <div key={product.id} className="flex items-center gap-3 p-3 bg-red-600/5 rounded-lg border border-red-600/20">
+              {worstPerformingProducts.map((product: any, index: number) => (
+                <div key={product.productId} className="flex items-center gap-3 p-3 bg-red-600/5 rounded-lg border border-red-600/20">
                   <ImageWithFallback
-                    src={product.image}
+                    src={product.image ?? undefined}
                     alt={product.name}
                     className="w-12 h-12 object-cover rounded-lg"
                   />
@@ -539,9 +463,9 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
                       {product.name}
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-dark-negative font-bold">{product.rto}% RTO</span>
+                      <span className="text-dark-negative font-bold">{product.rtoPercentage != null ? product.rtoPercentage + '% RTO' : '-'}</span>
                       <span className="text-dark-secondary">•</span>
-                      <span className="text-dark-secondary">{product.roas}x ROAS</span>
+                      <span className="text-dark-secondary">{product.roas != null ? product.roas + 'x ROAS' : '-'}</span>
                     </div>
                   </div>
                   <Badge className="bg-red-600/20 text-red-400 text-xs">
@@ -574,11 +498,11 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
             </div>
             
             <div className="space-y-3">
-              {topRevenueProducts.map((product, index) => (
-                <div key={product.id} className="flex items-center gap-3 p-3 bg-dark-hover rounded-lg">
+              {topRevenueProducts.map((product: any, index: number) => (
+                <div key={product.productId} className="flex items-center gap-3 p-3 bg-dark-hover rounded-lg">
                   <div className="relative">
                     <ImageWithFallback
-                      src={product.image}
+                      src={product.image ?? undefined}
                       alt={product.name}
                       className="w-12 h-12 object-cover rounded-lg"
                     />
@@ -593,9 +517,9 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
                       {product.name}
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-dark-cta font-bold">{formatCurrency(product.netSales)}</span>
+                      <span className="text-dark-cta font-bold">{formatCurrency(product.revenue)}</span>
                       <span className="text-dark-secondary">•</span>
-                      <span className="text-dark-secondary">{product.orders} orders</span>
+                      <span className="text-dark-secondary">{product.quantitySold} orders</span>
                     </div>
                   </div>
                   <Badge className="bg-blue-600/20 text-blue-400 text-xs">
@@ -747,7 +671,7 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
       {/* Results Counter */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-dark-secondary">
-          Showing {filteredProducts.length} of {products.length} products
+          Showing {filteredProducts.length} of {totalValues || filteredProducts.length} products
           {sortBy !== 'none' && ` • Sorted by ${getSortLabel(sortBy)}`}
         </p>
       </div>
@@ -755,8 +679,8 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
       {/* Products Display */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+          {filteredProducts.map((product: any) => (
+            <ProductCard key={product.productId} product={product} />
           ))}
         </div>
       ) : (
@@ -774,8 +698,8 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((product) => (
-                  <ProductTableRow key={product.id} product={product} />
+                {filteredProducts.map((product: any) => (
+                  <ProductTableRow key={product.productId} product={product} />
                 ))}
               </tbody>
             </table>

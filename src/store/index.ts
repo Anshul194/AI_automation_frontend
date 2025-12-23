@@ -7,6 +7,7 @@ import exampleReducer from './slices/exampleSlice';
 import faqReducer from './slices/faqSlice';
 import connectionReducer from './slices/connection';
 import metricsReducer from './slices/metricsSlice';
+import catalogReducer from './slices/catalogSlice';
 
 const store = configureStore({
   reducer: {
@@ -15,6 +16,7 @@ const store = configureStore({
     faq: faqReducer,
     connection: connectionReducer,
     metrics: metricsReducer,
+    catalog: catalogReducer,
   },
 });
 

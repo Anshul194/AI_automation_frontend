@@ -1,6 +1,7 @@
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { SafeRender } from "./ui/SafeRender";
 import { Progress } from "./ui/progress";
 import { 
   TrendingUp, 
@@ -336,7 +337,8 @@ export function EnhancedDashboard() {
               {locationPerformance?.highRtoAlert ? (
                 <Badge className="bg-dark-negative/20 text-dark-negative">
                   <AlertTriangle className="h-4 w-4 mr-1" />
-                  {locationPerformance.highRtoAlert}
+                  {/* Prevent object rendering crash */}
+                  <SafeRender value={locationPerformance.highRtoAlert} />
                 </Badge>
               ) : locationData.some((s: any) => s.rto > 40) && (
                 <Badge className="bg-dark-negative/20 text-dark-negative">
