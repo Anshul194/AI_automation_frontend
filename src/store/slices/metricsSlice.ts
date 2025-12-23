@@ -33,6 +33,17 @@ interface GenderPerformanceData {
   insight: string;
 }
 
+interface AIRecommendationData {
+  id: string;
+  type: 'critical' | 'opportunity' | 'optimize';
+  title: string;
+  description: string;
+  impact: string;
+  action: string;
+  priority: number;
+  createdAt: string;
+}
+
 interface MetricsState {
   data: MetricsData | null;
   loading: boolean;
@@ -49,6 +60,9 @@ interface MetricsState {
   genderPerformance: GenderPerformanceData | null;
   genderLoading: boolean;
   genderError: string | null;
+  aiRecommendations: AIRecommendationData[] | null;
+  aiRecommendationsLoading: boolean;
+  aiRecommendationsError: string | null;
 }
 
 const initialState: MetricsState = {
@@ -67,6 +81,9 @@ const initialState: MetricsState = {
   genderPerformance: null,
   genderLoading: false,
   genderError: null,
+  aiRecommendations: null,
+  aiRecommendationsLoading: false,
+  aiRecommendationsError: null,
 };
 
 // Helper function to format currency
@@ -293,6 +310,39 @@ export const fetchGenderPerformance = createAsyncThunk(
   }
 );
 
+// Async thunk to fetch AI recommendations
+export const fetchAIRecommendations = createAsyncThunk(
+  'metrics/fetchAIRecommendations',
+  async (_, { rejectWithValue }) => {
+    try {
+      const userString = localStorage.getItem('user');
+      
+      if (!userString) {
+        throw new Error('User not found in localStorage');
+      }
+
+      const userData = JSON.parse(userString);
+      const userId = userData?._id;
+      
+      if (!userId) {
+        throw new Error('User ID not found in user data');
+      }
+
+      const response = await axiosInstance.get(
+        `/ai/latest-recommendations?userId=${userId}`
+      );
+      
+      console.log('AI Recommendations API Response:', response.data);
+      
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || 'Failed to fetch AI recommendations'
+      );
+    }
+  }
+);
+
 const metricsSlice = createSlice({
   name: 'metrics',
   initialState,
@@ -316,6 +366,10 @@ const metricsSlice = createSlice({
     clearGenderPerformance: (state) => {
       state.genderPerformance = null;
       state.genderError = null;
+    },
+    clearAIRecommendations: (state) => {
+      state.aiRecommendations = null;
+      state.aiRecommendationsError = null;
     },
   },
   extraReducers: (builder) => {
@@ -562,9 +616,49 @@ const metricsSlice = createSlice({
       .addCase(fetchGenderPerformance.rejected, (state, action) => {
         state.genderLoading = false;
         state.genderError = action.payload as string;
+      })
+      // AI recommendations thunk handlers
+      .addCase(fetchAIRecommendations.pending, (state) => {
+        state.aiRecommendationsLoading = true;
+        state.aiRecommendationsError = null;
+      })
+      .addCase(fetchAIRecommendations.fulfilled, (state, action: PayloadAction<any>) => {
+        state.aiRecommendationsLoading = false;
+        
+        // Transform API data to component format
+        const apiData = action.payload;
+        
+        // Handle the nested structure: response.data.data[0].recommendations
+        const recommendations = apiData?.data?.[0]?.recommendations;
+        
+        if (recommendations && Array.isArray(recommendations)) {
+          // Transform the data to match the expected format
+          const transformedRecommendations = recommendations.map((rec: any) => ({
+            id: rec._id || rec.id || Math.random().toString(),
+            type: rec.type === 'critical' ? 'critical' : 
+                  rec.type === 'growth' ? 'opportunity' : 
+                  rec.type === 'trend' ? 'optimize' : 'optimize',
+            title: rec.title || 'AI Recommendation',
+            description: rec.description || 'No description available',
+            impact: rec.reasoning || 'Impact analysis available',
+            action: rec.action || 'Take Action',
+            priority: rec.priority || 1,
+            createdAt: new Date().toISOString()
+          }));
+
+          state.aiRecommendations = transformedRecommendations;
+        } else {
+          state.aiRecommendations = [];
+        }
+        
+        state.aiRecommendationsError = null;
+      })
+      .addCase(fetchAIRecommendations.rejected, (state, action) => {
+        state.aiRecommendationsLoading = false;
+        state.aiRecommendationsError = action.payload as string;
       });
   },
 });
 
-export const { clearMetrics, clearLocationPerformance, clearAgePerformance, clearPlacementPerformance, clearGenderPerformance } = metricsSlice.actions;
+export const { clearMetrics, clearLocationPerformance, clearAgePerformance, clearPlacementPerformance, clearGenderPerformance, clearAIRecommendations } = metricsSlice.actions;
 export default metricsSlice.reducer;

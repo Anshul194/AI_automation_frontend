@@ -33,7 +33,7 @@ import {
 } from 'recharts';
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchUserMetrics, fetchLocationPerformance, fetchAgePerformance, fetchPlacementPerformance, fetchGenderPerformance } from '../store/slices/metricsSlice';
+import { fetchUserMetrics, fetchLocationPerformance, fetchAgePerformance, fetchPlacementPerformance, fetchGenderPerformance, fetchAIRecommendations } from '../store/slices/metricsSlice';
 
 export function EnhancedDashboard() {
   const dispatch = useAppDispatch();
@@ -57,6 +57,11 @@ export function EnhancedDashboard() {
     genderPerformance, 
     genderLoading, 
     genderError 
+  } = useAppSelector((state) => state.metrics);
+  const { 
+    aiRecommendations, 
+    aiRecommendationsLoading, 
+    aiRecommendationsError 
   } = useAppSelector((state) => state.metrics);
 
   useEffect(() => {
@@ -82,6 +87,9 @@ export function EnhancedDashboard() {
     
     // Fetch gender performance data
     dispatch(fetchGenderPerformance());
+    
+    // Fetch AI recommendations
+    dispatch(fetchAIRecommendations());
   }, [dispatch]);
 
   // Mock data for different analytics sections (fallback if API doesn't return data)
@@ -155,7 +163,7 @@ export function EnhancedDashboard() {
     { platform: 'Audience Network', spend: 15, roas: 2.1, rto: 35 }
   ];
 
-  const recommendations = metricsData?.recommendations || [
+  const recommendations = aiRecommendations || metricsData?.recommendations || [
     {
       type: 'critical',
       title: 'Pause ads in UP, Bihar, Assam',
@@ -178,6 +186,8 @@ export function EnhancedDashboard() {
       action: 'Optimize'
     }
   ];
+
+  console.log('AI Recommendations Debug:', { aiRecommendations, recommendations, aiRecommendationsLoading, aiRecommendationsError });
 
   const CHART_COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6'];
 
@@ -748,43 +758,71 @@ export function EnhancedDashboard() {
           <div className="flex items-center gap-3">
             <Target className="h-5 w-5 text-dark-cta" />
             <h2 className="text-xl font-semibold text-dark-primary">AI Recommendations</h2>
+            {aiRecommendationsLoading && <Loader2 className="h-4 w-4 animate-spin text-dark-cta ml-2" />}
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {recommendations.map((rec, index) => (
-              <Card key={index} className={`p-6 border ${
-                rec.type === 'critical' ? 'border-red-600/30 bg-red-600/5' :
-                rec.type === 'opportunity' ? 'border-green-600/30 bg-green-600/5' :
-                'border-blue-600/30 bg-blue-600/5'
-              }`}>
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <h3 className="font-medium text-dark-primary">{rec.title}</h3>
-                      <p className="text-sm text-dark-secondary">{rec.description}</p>
-                    </div>
-                    <Badge className={`${
-                      rec.type === 'critical' ? 'bg-red-600/20 text-red-400' :
-                      rec.type === 'opportunity' ? 'bg-green-600/20 text-green-400' :
-                      'bg-blue-600/20 text-blue-400'
-                    }`}>
-                      {rec.type}
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium text-dark-cta">{rec.impact}</div>
-                    <Button size="sm" className={`w-full ${
-                      rec.type === 'critical' ? 'bg-red-600 hover:bg-red-700 text-white' :
-                      rec.type === 'opportunity' ? 'bg-green-600 hover:bg-green-700 text-white' :
-                      'dark-button-primary'
-                    }`}>
-                      {rec.action}
-                    </Button>
-                  </div>
+          {aiRecommendationsError ? (
+            <div className="p-4 bg-red-600/10 rounded-lg border border-red-600/20">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-dark-negative flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-dark-negative">Failed to Load AI Recommendations</div>
+                  <div className="text-sm text-dark-secondary">{aiRecommendationsError}</div>
                 </div>
-              </Card>
-            ))}
-          </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => dispatch(fetchAIRecommendations())}
+                  className="ml-auto"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : aiRecommendationsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-dark-cta" />
+                <p className="text-dark-secondary">Loading AI recommendations...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-6">
+              {recommendations.map((rec, index) => (
+                <Card key={rec.id || index} className={`p-6 border ${
+                  rec.type === 'critical' ? 'border-red-600/30 bg-red-600/5' :
+                  rec.type === 'opportunity' ? 'border-green-600/30 bg-green-600/5' :
+                  'border-blue-600/30 bg-blue-600/5'
+                }`}>
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <h3 className="font-medium text-dark-primary">{rec.title}</h3>
+                        <p className="text-sm text-dark-secondary">{rec.description}</p>
+                      </div>
+                      <Badge className={`${
+                        rec.type === 'critical' ? 'bg-red-600/20 text-red-400' :
+                        rec.type === 'opportunity' ? 'bg-green-600/20 text-green-400' :
+                        'bg-blue-600/20 text-blue-400'
+                      }`}>
+                        {rec.type}
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-dark-cta">{rec.impact}</div>
+                      <Button size="sm" className={`w-full ${
+                        rec.type === 'critical' ? 'bg-red-600 hover:bg-red-700 text-white' :
+                        rec.type === 'opportunity' ? 'bg-green-600 hover:bg-green-700 text-white' :
+                        'dark-button-primary'
+                      }`}>
+                        {rec.action}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
     </div>
