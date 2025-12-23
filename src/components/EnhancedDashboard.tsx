@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   Download,
   Calendar,
-  Filter
+  Filter,
+  Loader2
 } from "lucide-react";
 import {
   BarChart,
@@ -29,10 +30,53 @@ import {
   Legend,
   Tooltip
 } from 'recharts';
+import { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { fetchUserMetrics, fetchLocationPerformance, fetchAgePerformance, fetchPlacementPerformance } from '../store/slices/metricsSlice';
 
 export function EnhancedDashboard() {
-  // Mock data for different analytics sections
-  const kpiData = [
+  const dispatch = useAppDispatch();
+  const { data: metricsData, loading, error } = useAppSelector((state) => state.metrics);
+  const { 
+    locationPerformance, 
+    locationLoading, 
+    locationError 
+  } = useAppSelector((state) => state.metrics);
+  const { 
+    agePerformance, 
+    ageLoading, 
+    ageError 
+  } = useAppSelector((state) => state.metrics);
+  const { 
+    placementPerformance, 
+    placementLoading, 
+    placementError 
+  } = useAppSelector((state) => state.metrics);
+
+  useEffect(() => {
+    dispatch(fetchUserMetrics());
+    
+    // Fetch location performance data for the last 30 days
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    
+    dispatch(fetchLocationPerformance({
+      startDate: formatDate(startDate),
+      endDate: formatDate(endDate)
+    }));
+    
+    // Fetch age-wise performance data
+    dispatch(fetchAgePerformance());
+    
+    // Fetch placement-wise performance data
+    dispatch(fetchPlacementPerformance());
+  }, [dispatch]);
+
+  // Mock data for different analytics sections (fallback if API doesn't return data)
+  const kpiData = metricsData?.kpiData || [
     {
       title: "Total Revenue",
       value: "₹45.2L",
@@ -70,12 +114,12 @@ export function EnhancedDashboard() {
     }
   ];
 
-  const genderPerformanceData = [
+  const genderPerformanceData = metricsData?.genderPerformanceData || [
     { gender: 'Male', roas: 3.8, rto: 8, spend: 4500000, revenue: 17100000 },
     { gender: 'Female', roas: 4.6, rto: 15, spend: 6300000, revenue: 28980000 }
   ];
 
-  const locationData = [
+  const locationData = locationPerformance?.locationData || [
     { state: 'Maharashtra', roas: 4.8, rto: 8, color: '#22C55E' },
     { state: 'Karnataka', roas: 4.2, rto: 12, color: '#3B82F6' },
     { state: 'Delhi', roas: 3.9, rto: 10, color: '#F59E0B' },
@@ -86,7 +130,7 @@ export function EnhancedDashboard() {
     { state: 'Assam', roas: 1.2, rto: 48, color: '#DC2626' }
   ];
 
-  const agePerformanceData = [
+  const agePerformanceData = agePerformance?.ageData || [
     { age: '18-24', roas: 3.2, rto: 18, orders: 156 },
     { age: '25-34', roas: 4.8, rto: 9, orders: 342 },
     { age: '35-44', roas: 4.1, rto: 12, orders: 287 },
@@ -95,14 +139,14 @@ export function EnhancedDashboard() {
     { age: '65+', roas: 1.6, rto: 42, orders: 23 }
   ];
 
-  const placementData = [
+  const placementData = placementPerformance?.placements || metricsData?.placementData || [
     { platform: 'Facebook Feed', spend: 35, roas: 4.2, rto: 8 },
     { platform: 'Instagram Feed', spend: 28, roas: 4.8, rto: 12 },
     { platform: 'Instagram Stories', spend: 22, roas: 3.6, rto: 15 },
     { platform: 'Audience Network', spend: 15, roas: 2.1, rto: 35 }
   ];
 
-  const recommendations = [
+  const recommendations = metricsData?.recommendations || [
     {
       type: 'critical',
       title: 'Pause ads in UP, Bihar, Assam',
@@ -127,6 +171,41 @@ export function EnhancedDashboard() {
   ];
 
   const CHART_COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-dark-bg">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-dark-cta" />
+          <p className="text-dark-secondary">Loading dashboard metrics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-dark-bg">
+        <Card className="dark-card p-6 max-w-md">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <AlertTriangle className="h-12 w-12 text-dark-negative" />
+            <div>
+              <h2 className="text-xl font-semibold text-dark-primary mb-2">Failed to Load Metrics</h2>
+              <p className="text-dark-secondary">{error}</p>
+            </div>
+            <Button 
+              onClick={() => dispatch(fetchUserMetrics())} 
+              className="dark-button-primary"
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-8 bg-dark-bg min-h-screen">
@@ -235,6 +314,9 @@ export function EnhancedDashboard() {
           </div>
         </div>
       </Card>
+                  {console?.log("locationPerformance",locationPerformance)}
+                  {console?.log("agePerformance",agePerformance)}
+
 
       {/* Location-wise Performance */}
       <Card className="dark-card p-6">
@@ -243,18 +325,63 @@ export function EnhancedDashboard() {
             <div className="flex items-center gap-3">
               <MapPin className="h-5 w-5 text-dark-cta" />
               <h2 className="text-xl font-semibold text-dark-primary">Location-wise Performance</h2>
+              {locationLoading && <Loader2 className="h-4 w-4 animate-spin text-dark-cta ml-2" />}
             </div>
-            <Badge className="bg-dark-negative/20 text-dark-negative">
-              <AlertTriangle className="h-4 w-4 mr-1" />
-              High RTO states detected
-            </Badge>
+            <div className="flex items-center gap-2">
+              {locationPerformance?.locationSummary && (
+                <Badge className="bg-blue-600/20 text-blue-400">
+                  {locationPerformance.locationSummary.totalStates} States • ₹{(locationPerformance.locationSummary.totalRevenue / 1000).toFixed(1)}K Revenue
+                </Badge>
+              )}
+              {locationPerformance?.highRtoAlert ? (
+                <Badge className="bg-dark-negative/20 text-dark-negative">
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  {locationPerformance.highRtoAlert}
+                </Badge>
+              ) : locationData.some((s: any) => s.rto > 40) && (
+                <Badge className="bg-dark-negative/20 text-dark-negative">
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  High RTO states detected
+                </Badge>
+              )}
+            </div>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          {locationError ? (
+            <div className="p-4 bg-red-600/10 rounded-lg border border-red-600/20">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-dark-negative flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-dark-negative">Failed to Load Location Data</div>
+                  <div className="text-sm text-dark-secondary">{locationError}</div>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => {
+                    const endDate = new Date();
+                    const startDate = new Date();
+                    startDate.setDate(startDate.getDate() - 30);
+                    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+                    dispatch(fetchLocationPerformance({
+                      startDate: formatDate(startDate),
+                      endDate: formatDate(endDate)
+                    }));
+                  }}
+                  className="ml-auto"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid lg:grid-cols-2 gap-8">
             {/* Top & Bottom States */}
             <div className="space-y-6">
               <div>
-                <h3 className="font-medium text-dark-primary mb-4">Top 5 States (Best ROAS)</h3>
+                <h3 className="font-medium text-dark-primary mb-4">
+                  Top {Math.min(5, locationData.length)} States (Best ROAS)
+                </h3>
                 <div className="space-y-3">
                   {locationData.slice(0, 5).map((state, index) => (
                     <div key={state.state} className="flex items-center justify-between p-3 bg-dark-hover rounded-lg">
@@ -271,23 +398,28 @@ export function EnhancedDashboard() {
                 </div>
               </div>
 
-              <div>
-                <h3 className="font-medium text-dark-primary mb-4">Bottom 3 States (Worst RTO)</h3>
-                <div className="space-y-3">
-                  {locationData.slice(-3).map((state, index) => (
-                    <div key={state.state} className="flex items-center justify-between p-3 bg-red-600/10 rounded-lg border border-red-600/20">
-                      <div className="flex items-center gap-3">
-                        <AlertTriangle className="h-4 w-4 text-dark-negative" />
-                        <span className="font-medium text-dark-primary">{state.state}</span>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-dark-negative">{state.roas}x</div>
-                        <div className="text-xs text-dark-negative">{state.rto}% RTO</div>
-                      </div>
-                    </div>
-                  ))}
+              {locationData.filter((s: any) => s.rto > 30).length > 0 && (
+                <div>
+                  <h3 className="font-medium text-dark-primary mb-4">High RTO States (Above 30%)</h3>
+                  <div className="space-y-3">
+                    {locationData
+                      .filter((s: any) => s.rto > 30)
+                      .slice(0, 3)
+                      .map((state, index) => (
+                        <div key={state.state} className="flex items-center justify-between p-3 bg-red-600/10 rounded-lg border border-red-600/20">
+                          <div className="flex items-center gap-3">
+                            <AlertTriangle className="h-4 w-4 text-dark-negative" />
+                            <span className="font-medium text-dark-primary">{state.state}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-dark-negative">{state.roas}x</div>
+                            <div className="text-xs text-dark-negative">{state.rto}% RTO</div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* State Performance Chart */}
@@ -316,13 +448,20 @@ export function EnhancedDashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+          )}
 
           <div className="p-4 bg-red-600/10 rounded-lg border border-red-600/20">
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-dark-negative flex-shrink-0 mt-0.5" />
               <div>
                 <div className="font-medium text-dark-negative">High RTO Alert</div>
-                <div className="text-sm text-dark-secondary">UP, Bihar, and Assam show RTO rates above 45%. Consider pausing ads in these regions to prevent losses.</div>
+                <div className="text-sm text-dark-secondary">
+                  {locationPerformance?.locationSummary ? (
+                    `${locationData.filter((s: any) => s.rto > 40).length} states show RTO rates above 40%. Total RTO Orders: ${locationPerformance.locationSummary.totalRtoOrders || 0} out of ${locationPerformance.locationSummary.totalOrders} orders. Consider pausing ads in these regions to prevent losses.`
+                  ) : (
+                    'UP, Bihar, and Assam show RTO rates above 45%. Consider pausing ads in these regions to prevent losses.'
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -336,10 +475,36 @@ export function EnhancedDashboard() {
             <div className="flex items-center gap-3">
               <Users className="h-5 w-5 text-dark-cta" />
               <h2 className="text-xl font-semibold text-dark-primary">Age-wise Performance</h2>
+              {ageLoading && <Loader2 className="h-4 w-4 animate-spin text-dark-cta ml-2" />}
             </div>
-            <Badge className="bg-dark-positive/20 text-dark-positive">25-34 age group leading</Badge>
+            <div className="flex items-center gap-2">
+              {agePerformance?.topPerformingAge && (
+                <Badge className="bg-dark-positive/20 text-dark-positive">
+                  {agePerformance.topPerformingAge.ageRange} age group leading
+                </Badge>
+              )}
+            </div>
           </div>
 
+          {ageError ? (
+            <div className="p-4 bg-red-600/10 rounded-lg border border-red-600/20">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-dark-negative flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-dark-negative">Failed to Load Age Data</div>
+                  <div className="text-sm text-dark-secondary">{ageError}</div>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => dispatch(fetchAgePerformance())}
+                  className="ml-auto"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : (
           <div className="grid lg:grid-cols-2 gap-8">
             <div>
               <ResponsiveContainer width="100%" height={300}>
@@ -357,7 +522,9 @@ export function EnhancedDashboard() {
                   />
                   <Legend />
                   <Bar dataKey="roas" fill="#3B82F6" name="ROAS" />
-                  <Bar dataKey="rto" fill="#EF4444" name="RTO %" />
+                  {agePerformanceData.some((d: any) => d.rto > 0) && (
+                    <Bar dataKey="rto" fill="#EF4444" name="RTO %" />
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -366,13 +533,23 @@ export function EnhancedDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-dark-hover rounded-lg">
                   <div className="text-sm text-dark-secondary">Best Age Group</div>
-                  <div className="text-xl font-bold text-dark-positive">25-34</div>
-                  <div className="text-sm text-dark-secondary">4.8x ROAS, 342 orders</div>
+                  <div className="text-xl font-bold text-dark-positive">
+                    {agePerformance?.topPerformingAge?.ageRange || '25-34'}
+                  </div>
+                  <div className="text-sm text-dark-secondary">
+                    {agePerformance?.topPerformingAge?.roas?.toFixed(1) || '4.8'}x ROAS, 
+                    {agePerformance?.topPerformingAge?.totalPurchases || '342'} orders
+                  </div>
                 </div>
                 <div className="p-4 bg-dark-hover rounded-lg">
                   <div className="text-sm text-dark-secondary">Worst Age Group</div>
-                  <div className="text-xl font-bold text-dark-negative">65+</div>
-                  <div className="text-sm text-dark-secondary">1.6x ROAS, 42% RTO</div>
+                  <div className="text-xl font-bold text-dark-negative">
+                    {agePerformance?.worstPerformingAge?.ageRange || '65+'}
+                  </div>
+                  <div className="text-sm text-dark-secondary">
+                    {agePerformance?.worstPerformingAge?.roas?.toFixed(1) || '0.0'}x ROAS
+                    {agePerformance?.worstPerformingAge?.rtoRate ? `, ${agePerformance.worstPerformingAge.rtoRate.toFixed(0)}% RTO` : ''}
+                  </div>
                 </div>
               </div>
 
@@ -397,8 +574,11 @@ export function EnhancedDashboard() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </Card>
+
+      {console?.log("placementPerformance",placementPerformance)}
 
       {/* Placement-wise Performance */}
       <Card className="dark-card p-6">
@@ -407,10 +587,41 @@ export function EnhancedDashboard() {
             <div className="flex items-center gap-3">
               <Smartphone className="h-5 w-5 text-dark-cta" />
               <h2 className="text-xl font-semibold text-dark-primary">Placement-wise Performance</h2>
+              {placementLoading && <Loader2 className="h-4 w-4 animate-spin text-dark-cta ml-2" />}
             </div>
-            <Badge className="bg-dark-positive/20 text-dark-positive">Instagram Feed performing best</Badge>
+            <div className="flex items-center gap-2">
+              {placementPerformance?.summary && (
+                <Badge className="bg-blue-600/20 text-blue-400">
+                  {placementPerformance.summary.placementCount} Placements • ₹{(placementPerformance.summary.totalRevenue / 100000).toFixed(1)}L Revenue • {placementPerformance.summary.overallROAS.toFixed(2)}x ROAS
+                </Badge>
+              )}
+              {placementPerformance?.bestPerformer && (
+                <Badge className="bg-dark-positive/20 text-dark-positive">
+                  {placementPerformance.bestPerformer.placement.replace(/_/g, ' ')} performing best
+                </Badge>
+              )}
+            </div>
           </div>
 
+          {placementError ? (
+            <div className="p-4 bg-red-600/10 rounded-lg border border-red-600/20">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-dark-negative flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-dark-negative">Failed to Load Placement Data</div>
+                  <div className="text-sm text-dark-secondary">{placementError}</div>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => dispatch(fetchPlacementPerformance())}
+                  className="ml-auto"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : (
           <div className="grid lg:grid-cols-2 gap-8">
             <div>
               <h3 className="font-medium text-dark-primary mb-4">Spend Distribution</h3>
@@ -473,16 +684,23 @@ export function EnhancedDashboard() {
               </div>
             </div>
           </div>
+          )}
 
-          <div className="p-4 bg-blue-600/10 rounded-lg border border-blue-600/20">
-            <div className="flex items-start gap-3">
-              <Target className="h-5 w-5 text-dark-cta flex-shrink-0 mt-0.5" />
-              <div>
-                <div className="font-medium text-dark-primary">Platform Insight</div>
-                <div className="text-sm text-dark-secondary">Instagram Feed shows best ROI (4.8x ROAS), while Audience Network underperforms (2.1x ROAS). Consider redistributing budget.</div>
+          {placementPerformance?.bestPerformer && placementPerformance?.worstPerformer && (
+            <div className="p-4 bg-blue-600/10 rounded-lg border border-blue-600/20">
+              <div className="flex items-start gap-3">
+                <Target className="h-5 w-5 text-dark-cta flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-dark-primary">Platform Insight</div>
+                  <div className="text-sm text-dark-secondary">
+                    {placementPerformance.bestPerformer.placement.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} shows best ROI ({placementPerformance.bestPerformer.roas.toFixed(1)}x ROAS), 
+                    while {placementPerformance.worstPerformer.placement.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} has {placementPerformance.worstPerformer.roas.toFixed(1)}x ROAS. 
+                    Consider redistributing budget to higher-performing placements.
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </Card>
 

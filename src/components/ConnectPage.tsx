@@ -651,7 +651,7 @@ function ConnectPage({ onComplete }: { onComplete: () => void }) {
         <div className="text-center space-y-6">
           <button
             onClick={handleContinue}
-            disabled={!connections.shopify || !connections.meta || !connections.analytics}
+            disabled={!connections.shopify }
             className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-dark-tag disabled:to-dark-tag disabled:cursor-not-allowed text-white font-semibold py-4 px-8 rounded-2xl transition-all flex items-center space-x-3 mx-auto"
           >
             <span>Continue to Dashboard</span>
