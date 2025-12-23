@@ -26,11 +26,11 @@ interface AgePerformanceData {
   worstPerformingAge: any;
 }
 
-interface PlacementPerformanceData {
-  placements: any[];
-  summary?: any;
-  bestPerformer?: any;
-  worstPerformer?: any;
+interface GenderPerformanceData {
+  genderData: any[];
+  summary: any;
+  bestPerformingGender: string;
+  insight: string;
 }
 
 interface MetricsState {
@@ -46,6 +46,9 @@ interface MetricsState {
   placementPerformance: PlacementPerformanceData | null;
   placementLoading: boolean;
   placementError: string | null;
+  genderPerformance: GenderPerformanceData | null;
+  genderLoading: boolean;
+  genderError: string | null;
 }
 
 const initialState: MetricsState = {
@@ -61,6 +64,9 @@ const initialState: MetricsState = {
   placementPerformance: null,
   placementLoading: false,
   placementError: null,
+  genderPerformance: null,
+  genderLoading: false,
+  genderError: null,
 };
 
 // Helper function to format currency
@@ -254,6 +260,39 @@ export const fetchUserMetrics = createAsyncThunk(
   }
 );
 
+// Async thunk to fetch gender performance
+export const fetchGenderPerformance = createAsyncThunk(
+  'metrics/fetchGenderPerformance',
+  async (_, { rejectWithValue }) => {
+    try {
+      const userString = localStorage.getItem('user');
+      
+      if (!userString) {
+        throw new Error('User not found in localStorage');
+      }
+
+      const userData = JSON.parse(userString);
+      const userId = userData?._id;
+      
+      if (!userId) {
+        throw new Error('User ID not found in user data');
+      }
+
+      const response = await axiosInstance.get(
+        `/gender-performance?userId=${userId}`
+      );
+
+      console.log('Gender Performance API Response:', response.data);
+      
+      return response.data?.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || 'Failed to fetch gender performance'
+      );
+    }
+  }
+);
+
 const metricsSlice = createSlice({
   name: 'metrics',
   initialState,
@@ -273,6 +312,10 @@ const metricsSlice = createSlice({
     clearPlacementPerformance: (state) => {
       state.placementPerformance = null;
       state.placementError = null;
+    },
+    clearGenderPerformance: (state) => {
+      state.genderPerformance = null;
+      state.genderError = null;
     },
   },
   extraReducers: (builder) => {
@@ -468,9 +511,60 @@ const metricsSlice = createSlice({
       .addCase(fetchPlacementPerformance.rejected, (state, action) => {
         state.placementLoading = false;
         state.placementError = action.payload as string;
+      })
+      // Gender performance thunk handlers
+      .addCase(fetchGenderPerformance.pending, (state) => {
+        state.genderLoading = true;
+        state.genderError = null;
+      })
+      .addCase(fetchGenderPerformance.fulfilled, (state, action: PayloadAction<any>) => {
+        state.genderLoading = false;
+
+        console.log('Gender Performance API Data:', action.payload);
+        
+        // Transform API data to component format
+        const apiData = action.payload;
+        
+        if (apiData) {
+          // Transform the data to match the expected format
+          const transformedGenderData = [
+            {
+              gender: 'Male',
+              roas: parseFloat((apiData.male?.roas || 0).toFixed(1)),
+              rto: parseFloat(((apiData.male?.rtoRate || 0) * 100).toFixed(0)),
+              orders: apiData.male?.totalOrders || 0,
+              spend: 0, // Spend not provided in API
+              revenue: apiData.male?.totalRevenue || 0,
+              clicks: 0, // Not provided
+              impressions: 0 // Not provided
+            },
+            {
+              gender: 'Female',
+              roas: parseFloat((apiData.female?.roas || 0).toFixed(1)),
+              rto: parseFloat(((apiData.female?.rtoRate || 0) * 100).toFixed(0)),
+              orders: apiData.female?.totalOrders || 0,
+              spend: 0, // Spend not provided in API
+              revenue: apiData.female?.totalRevenue || 0,
+              clicks: 0, // Not provided
+              impressions: 0 // Not provided
+            }
+          ];
+
+          state.genderPerformance = {
+            genderData: transformedGenderData,
+            bestPerformingGender: apiData.bestPerformingGender || 'Male',
+            insight: apiData.insight || 'Gender performance analysis available'
+          };
+        }
+        
+        state.genderError = null;
+      })
+      .addCase(fetchGenderPerformance.rejected, (state, action) => {
+        state.genderLoading = false;
+        state.genderError = action.payload as string;
       });
   },
 });
 
-export const { clearMetrics, clearLocationPerformance, clearAgePerformance, clearPlacementPerformance } = metricsSlice.actions;
+export const { clearMetrics, clearLocationPerformance, clearAgePerformance, clearPlacementPerformance, clearGenderPerformance } = metricsSlice.actions;
 export default metricsSlice.reducer;

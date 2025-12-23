@@ -33,7 +33,7 @@ import {
 } from 'recharts';
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { fetchUserMetrics, fetchLocationPerformance, fetchAgePerformance, fetchPlacementPerformance } from '../store/slices/metricsSlice';
+import { fetchUserMetrics, fetchLocationPerformance, fetchAgePerformance, fetchPlacementPerformance, fetchGenderPerformance } from '../store/slices/metricsSlice';
 
 export function EnhancedDashboard() {
   const dispatch = useAppDispatch();
@@ -52,6 +52,11 @@ export function EnhancedDashboard() {
     placementPerformance, 
     placementLoading, 
     placementError 
+  } = useAppSelector((state) => state.metrics);
+  const { 
+    genderPerformance, 
+    genderLoading, 
+    genderError 
   } = useAppSelector((state) => state.metrics);
 
   useEffect(() => {
@@ -74,6 +79,9 @@ export function EnhancedDashboard() {
     
     // Fetch placement-wise performance data
     dispatch(fetchPlacementPerformance());
+    
+    // Fetch gender performance data
+    dispatch(fetchGenderPerformance());
   }, [dispatch]);
 
   // Mock data for different analytics sections (fallback if API doesn't return data)
@@ -115,7 +123,7 @@ export function EnhancedDashboard() {
     }
   ];
 
-  const genderPerformanceData = metricsData?.genderPerformanceData || [
+  const genderPerformanceData = genderPerformance?.genderData || [
     { gender: 'Male', roas: 3.8, rto: 8, spend: 4500000, revenue: 17100000 },
     { gender: 'Female', roas: 4.6, rto: 15, spend: 6300000, revenue: 28980000 }
   ];
@@ -257,6 +265,12 @@ export function EnhancedDashboard() {
         ))}
       </div>
 
+
+
+
+
+{console?.log("genderPerformance",genderPerformance)}
+
       {/* Gender-wise Performance */}
       <Card className="dark-card p-6">
         <div className="space-y-6">
@@ -265,7 +279,9 @@ export function EnhancedDashboard() {
               <Users className="h-5 w-5 text-dark-cta" />
               <h2 className="text-xl font-semibold text-dark-primary">Gender-wise Performance</h2>
             </div>
-            <Badge className="bg-dark-positive/20 text-dark-positive">Female audience outperforming</Badge>
+            <Badge className="bg-dark-positive/20 text-dark-positive">
+              {genderPerformance?.bestPerformingGender || 'Female'} audience outperforming
+            </Badge>
           </div>
           
           <div className="grid lg:grid-cols-2 gap-8">
@@ -293,13 +309,31 @@ export function EnhancedDashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-dark-hover rounded-lg">
                   <div className="text-sm text-dark-secondary">Best Performing</div>
-                  <div className="text-xl font-bold text-dark-positive">Female</div>
-                  <div className="text-sm text-dark-secondary">4.6x ROAS, 15% RTO</div>
+                  <div className="text-xl font-bold text-dark-positive">
+                    {genderPerformance?.bestPerformingGender || 'Female'}
+                  </div>
+                  <div className="text-sm text-dark-secondary">
+                    {(genderPerformance?.genderData?.find(g => g.gender === genderPerformance.bestPerformingGender)?.roas || 0).toFixed(1)}x ROAS, 
+                    {Math.round(genderPerformance?.genderData?.find(g => g.gender === genderPerformance.bestPerformingGender)?.rto || 0)}% RTO
+                  </div>
                 </div>
                 <div className="p-4 bg-dark-hover rounded-lg">
                   <div className="text-sm text-dark-secondary">Revenue Split</div>
-                  <div className="text-xl font-bold text-dark-primary">64% F : 36% M</div>
-                  <div className="text-sm text-dark-secondary">₹29L vs ₹17L</div>
+                  <div className="text-xl font-bold text-dark-primary">
+                    {(() => {
+                      const maleRevenue = genderPerformance?.genderData?.find(g => g.gender === 'Male')?.revenue || 0;
+                      const femaleRevenue = genderPerformance?.genderData?.find(g => g.gender === 'Female')?.revenue || 0;
+                      const totalRevenue = maleRevenue + femaleRevenue;
+                      if (totalRevenue === 0) return '0% F : 0% M';
+                      const malePercent = Math.round((maleRevenue / totalRevenue) * 100);
+                      const femalePercent = Math.round((femaleRevenue / totalRevenue) * 100);
+                      return `${femalePercent}% F : ${malePercent}% M`;
+                    })()}
+                  </div>
+                  <div className="text-sm text-dark-secondary">
+                    ₹{((genderPerformance?.genderData?.find(g => g.gender === 'Female')?.revenue || 0) / 100000).toFixed(1)}L vs 
+                    ₹{((genderPerformance?.genderData?.find(g => g.gender === 'Male')?.revenue || 0) / 100000).toFixed(1)}L
+                  </div>
                 </div>
               </div>
               <div className="p-4 bg-blue-600/10 rounded-lg border border-blue-600/20">
@@ -307,7 +341,9 @@ export function EnhancedDashboard() {
                   <Target className="h-5 w-5 text-dark-cta flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="font-medium text-dark-primary">Insight</div>
-                    <div className="text-sm text-dark-secondary">Female audience shows 21% higher ROAS but also higher RTO. Consider improving product quality or return policy for this segment.</div>
+                    <div className="text-sm text-dark-secondary">
+                      {genderPerformance?.insight || 'Female audience shows 21% higher ROAS but also higher RTO. Consider improving product quality or return policy for this segment.'}
+                    </div>
                   </div>
                 </div>
               </div>
