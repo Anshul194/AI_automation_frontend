@@ -8,6 +8,7 @@ import faqReducer from './slices/faqSlice';
 import connectionReducer from './slices/connection';
 import metricsReducer from './slices/metricsSlice';
 import catalogReducer from './slices/catalogSlice';
+import videoReducer from './slices/videoSlice';
 
 const store = configureStore({
   reducer: {
@@ -17,6 +18,7 @@ const store = configureStore({
     connection: connectionReducer,
     metrics: metricsReducer,
     catalog: catalogReducer,
+      video: videoReducer,
   },
 });
 

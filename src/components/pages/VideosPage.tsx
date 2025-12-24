@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "../ui/dropdown-menu";
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchBestVideoAds, fetchVideoAnalytics } from '../../store/slices/videoSlice';
 
 type ViewMode = 'grid' | 'table';
 
@@ -42,10 +44,22 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('none');
 
-  // Mock video creative data
-  const videos = [
+  const dispatch = useAppDispatch();
+  const { bestRoas, bestHook, lowRoas, lowHook, summary, loading } = useAppSelector((s) => (s as any).video || {});
+
+  // TODO: replace hardcoded userId with dynamic value when available
+  const userId = '68c900ac51647b3b7dbab556';
+
+  useEffect(() => {
+    dispatch(fetchBestVideoAds(userId));
+    dispatch(fetchVideoAnalytics(userId));
+  }, [dispatch, userId]);
+
+
+  // Static fallback creative data (used only if API returns no ads)
+  const staticVideos = [
     {
-      id: 1,
+      id: '1',
       name: "Headphones Lifestyle Ad",
       thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop",
       duration: "0:30",
@@ -63,7 +77,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
       trend: "up"
     },
     {
-      id: 2,
+      id: '2',
       name: "Fitness Watch Morning Routine",
       thumbnail: "https://images.unsplash.com/photo-1579586337278-3f436f25d4d5?w=400&h=300&fit=crop",
       duration: "0:45",
@@ -81,7 +95,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
       trend: "up"
     },
     {
-      id: 3,
+      id: '3',
       name: "Skincare Before & After",
       thumbnail: "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=400&h=300&fit=crop",
       duration: "0:25",
@@ -99,7 +113,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
       trend: "up"
     },
     {
-      id: 4,
+      id: '4',
       name: "Coffee Brewing Tutorial",
       thumbnail: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&h=300&fit=crop",
       duration: "1:00",
@@ -117,7 +131,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
       trend: "stable"
     },
     {
-      id: 5,
+      id: '5',
       name: "Sunglasses Style Guide",
       thumbnail: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&h=300&fit=crop",
       duration: "0:35",
@@ -135,7 +149,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
       trend: "down"
     },
     {
-      id: 6,
+      id: '6',
       name: "Yoga Flow Session",
       thumbnail: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=300&fit=crop",
       duration: "0:40",
@@ -153,6 +167,29 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
       trend: "down"
     }
   ];
+
+  // Build videos array from API `accounts` -> `ads` when available
+  const accountsAny: any[] = useAppSelector((state) => (state as any).video?.accounts || []);
+  const apiVideos = accountsAny.flatMap((acc) => (acc.ads || []).map((ad: any) => ({
+    id: String(ad.ad_id),
+    name: ad.ad_name || ad.ad_id,
+    thumbnail: ad.thumbnail_url || ad.thumbnail || '',
+    duration: ad.duration || '0:30',
+    roas: ad.roas ?? 0,
+    hookCtr: ad.hook_rate ?? 0,
+    addToCartRate: ad.add_to_cart ?? 0,
+    purchaseRate: ad.purchase ?? 0,
+    impressions: ad.impressions ?? 0,
+    spend: ad.spend ?? 0,
+    revenue: ad.revenue ?? 0,
+    aov: ad.aov ?? 0,
+    rto: ad.rto ?? 0,
+    frequency: ad.frequency ?? 0,
+    isBestHook: false,
+    trend: 'stable',
+  })));
+
+  const videos = apiVideos.length ? apiVideos : staticVideos;
 
   // Filter and sort videos
   let filteredVideos = videos.filter(video =>
@@ -213,27 +250,64 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
     .sort((a, b) => a.hookCtr - b.hookCtr)
     .slice(0, 3);
 
+  // Map API results (if any) to the UI shape used in the performance cards
+  const apiBestRoas = (bestRoas || []).map((v: any) => ({
+    id: v.ad_id,
+    name: v.ad_name,
+    thumbnail: v.thumbnail_url,
+    roas: v.roas,
+    hookCtr: v.hook_rate,
+    revenue: 0,
+  }));
+
+  const apiBestHook = (bestHook || []).map((v: any) => ({
+    id: v.ad_id,
+    name: v.ad_name,
+    thumbnail: v.thumbnail_url,
+    roas: v.roas,
+    hookCtr: v.hook_rate,
+    revenue: 0,
+  }));
+
+  const apiLowRoas = (lowRoas || []).map((v: any) => ({
+    id: v.ad_id,
+    name: v.ad_name,
+    thumbnail: v.thumbnail_url,
+    roas: v.roas,
+    hookCtr: v.hook_rate,
+    revenue: 0,
+  }));
+
+  const apiLowHook = (lowHook || []).map((v: any) => ({
+    id: v.ad_id,
+    name: v.ad_name,
+    thumbnail: v.thumbnail_url,
+    roas: v.roas,
+    hookCtr: v.hook_rate,
+    revenue: 0,
+  }));
+
   // Helper function to get performance tags for a video
   const getPerformanceTags = (video: typeof videos[0]) => {
     const tags = [];
     
-    if (bestPerformingByRoas.some(v => v.id === video.id)) {
-      const rank = bestPerformingByRoas.findIndex(v => v.id === video.id) + 1;
+    if (bestPerformingByRoas.some(v => String(v.id) === String(video.id))) {
+      const rank = bestPerformingByRoas.findIndex(v => String(v.id) === String(video.id)) + 1;
       tags.push({ type: 'best-roas', rank, label: `#${rank} Best ROAS` });
     }
     
-    if (bestPerformingByHookCtr.some(v => v.id === video.id)) {
-      const rank = bestPerformingByHookCtr.findIndex(v => v.id === video.id) + 1;
+    if (bestPerformingByHookCtr.some(v => String(v.id) === String(video.id))) {
+      const rank = bestPerformingByHookCtr.findIndex(v => String(v.id) === String(video.id)) + 1;
       tags.push({ type: 'best-hook', rank, label: `#${rank} Best Hook` });
     }
     
-    if (worstPerformingByRoas.some(v => v.id === video.id)) {
-      const rank = worstPerformingByRoas.findIndex(v => v.id === video.id) + 1;
+    if (worstPerformingByRoas.some(v => String(v.id) === String(video.id))) {
+      const rank = worstPerformingByRoas.findIndex(v => String(v.id) === String(video.id)) + 1;
       tags.push({ type: 'worst-roas', rank, label: `#${rank} Low ROAS` });
     }
     
-    if (worstPerformingByHookCtr.some(v => v.id === video.id)) {
-      const rank = worstPerformingByHookCtr.findIndex(v => v.id === video.id) + 1;
+    if (worstPerformingByHookCtr.some(v => String(v.id) === String(video.id))) {
+      const rank = worstPerformingByHookCtr.findIndex(v => String(v.id) === String(video.id)) + 1;
       tags.push({ type: 'worst-hook', rank, label: `#${rank} Low Hook` });
     }
     
@@ -592,7 +666,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
             </div>
             
             <div className="space-y-3">
-              {bestPerformingByRoas.map((video, index) => (
+              {(apiBestRoas.length ? apiBestRoas : bestPerformingByRoas).map((video, index) => (
                 <div key={video.id} className="flex items-center gap-3 p-3 bg-dark-hover rounded-lg">
                   <div className="relative">
                     <ImageWithFallback
@@ -639,7 +713,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
             </div>
             
             <div className="space-y-3">
-              {bestPerformingByHookCtr.map((video, index) => (
+              {(apiBestHook.length ? apiBestHook : bestPerformingByHookCtr).map((video, index) => (
                 <div key={video.id} className="flex items-center gap-3 p-3 bg-dark-hover rounded-lg">
                   <div className="relative">
                     <ImageWithFallback
@@ -686,7 +760,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
             </div>
             
             <div className="space-y-3">
-              {worstPerformingByRoas.map((video, index) => (
+              {(apiLowRoas.length ? apiLowRoas : worstPerformingByRoas).map((video, index) => (
                 <div key={video.id} className="flex items-center gap-3 p-3 bg-red-600/5 rounded-lg border border-red-600/20">
                   <ImageWithFallback
                     src={video.thumbnail}
@@ -733,7 +807,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
             </div>
             
             <div className="space-y-3">
-              {worstPerformingByHookCtr.map((video, index) => (
+              {(apiLowHook.length ? apiLowHook : worstPerformingByHookCtr).map((video, index) => (
                 <div key={video.id} className="flex items-center gap-3 p-3 bg-orange-600/5 rounded-lg border border-orange-600/20">
                   <ImageWithFallback
                     src={video.thumbnail}
@@ -928,6 +1002,7 @@ export function VideosPage({ onNavigateToTrend }: { onNavigateToTrend?: (videoId
         </p>
       </div>
 
+      
       {/* Videos Display */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
