@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchProductTrends } from '../../store/slices/catalogSlice';
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -27,19 +29,26 @@ type TimeRange = '7d' | '30d' | '90d';
 
 export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const dispatch = useAppDispatch();
+  const productTrendState = useAppSelector((s: any) => s.catalog.productTrends?.[String(productId)]);
+  const loading = useAppSelector((s: any) => s.catalog.loading);
+  const error = useAppSelector((s: any) => s.catalog.error);
+  const catalogProducts = useAppSelector((s: any) => s.catalog.products || []);
+  const catalogProduct = catalogProducts.find((p: any) => Number(p.productId) === Number(productId));
 
-  // Mock product data - in real app this would be fetched based on productId
+  // Build product object dynamically from store (fallback to mock values)
   const product = {
     id: productId,
-    name: "Premium Wireless Headphones",
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop",
-    currentRoas: 5.2,
-    currentRto: 8,
-    currentRevenue: 850000,
-    currentOrders: 342,
-    currentAov: 2485,
+    name: catalogProduct?.name ?? catalogProduct?.title ?? "Premium Wireless Headphones",
+    image: catalogProduct?.image ?? "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop",
+    currentRoas: catalogProduct?.roas ?? 5.2,
+    currentRto: catalogProduct?.rtoPercentage ?? catalogProduct?.rto ?? 8,
+    currentRevenue: catalogProduct?.revenue ?? 850000,
+    currentOrders: catalogProduct?.quantitySold ?? 342,
+    currentAov: catalogProduct?.pVal ?? (catalogProduct?.quantitySold ? Math.round((catalogProduct.revenue || 0) / catalogProduct.quantitySold) : 2485),
+    currentAcc: catalogProduct?.acc ?? productTrendState?.cards?.avgAcc ?? null,
     trend: "up" as const
-  };
+  } as any;
 
   // Generate mock daily trend data for the selected time range
   const generateTrendData = (days: number) => {
@@ -89,7 +98,47 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
     }
   };
 
-  const trendData = generateTrendData(getDaysFromTimeRange(timeRange));
+  // Prefer API-driven trend data when available, otherwise use mock generator
+  const mapApiToTrend = (apiItems: any[]) => {
+    return apiItems.map((d: any, i: number) => {
+      const dateRaw = d.date || d.fullDate || d.day || d.ts || d.createdAt || d.date_string || null;
+      const date = dateRaw ? new Date(dateRaw) : new Date(new Date().setDate(new Date().getDate() - (getDaysFromTimeRange(timeRange) - i)));
+      const displayDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      const roas = d.roas ?? d.roasValue ?? d.roas_x ?? null;
+      const acc = d.acc ?? d.accValue ?? d.acc_percent ?? d.accPercentage ?? null;
+      const aov = d.aov ?? d.avgOrderValue ?? d.aovValue ?? 0;
+      const revenue = d.revenue ?? d.revenueValue ?? d.netRevenue ?? 0;
+      const rto = d.rto ?? d.rtoPercentage ?? d.rtoPercent ?? 0;
+      const sales = d.sales ?? d.quantitySold ?? d.orders ?? 0;
+
+      const isHighPerformance = roas != null ? roas > (product.currentRoas * 1.05) : false;
+      const isLowPerformance = roas != null ? roas < (product.currentRoas * 0.9) : false;
+
+      return {
+        date: displayDate,
+        fullDate: date.toISOString().split('T')[0],
+        roas: roas ?? Math.max(1.5, product.currentRoas * (0.8 + Math.random() * 0.4)),
+        acc: acc ?? null,
+        aov: aov ?? Math.max(500, product.currentAov * (0.8 + Math.random() * 0.4)),
+        revenue: revenue ?? Math.max(10000, product.currentRevenue * (0.7 + Math.random() * 0.6)),
+        rto: rto ?? Math.min(30, Math.max(3, product.currentRto * (1 + (Math.random() - 0.5) * 0.3))),
+        sales: sales ?? Math.max(5, Math.round(product.currentOrders * (0.6 + Math.random() * 0.8))),
+        isHighPerformance,
+        isLowPerformance,
+        performance: isHighPerformance ? 'high' : isLowPerformance ? 'low' : 'normal'
+      };
+    });
+  };
+
+  let trendData = [] as any[];
+  if (productTrendState && Array.isArray(productTrendState.data) && productTrendState.data.length > 0) {
+    trendData = mapApiToTrend(productTrendState.data.slice(-getDaysFromTimeRange(timeRange)));
+  } else if (productTrendState && Array.isArray(productTrendState.trends) && productTrendState.trends.length > 0) {
+    trendData = mapApiToTrend(productTrendState.trends.slice(-getDaysFromTimeRange(timeRange)));
+  } else {
+    trendData = generateTrendData(getDaysFromTimeRange(timeRange));
+  }
 
   // Calculate performance insights
   const highPerformanceDays = trendData.filter(d => d.isHighPerformance).length;
@@ -105,6 +154,9 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
     sales: Math.round(trendData.reduce((sum, d) => sum + d.sales, 0) / trendData.length)
   };
 
+  const accValues = trendData.map(d => d.acc).filter((v: any) => v != null);
+  const avgAcc = accValues.length ? (accValues.reduce((s: number, v: number) => s + v, 0) / accValues.length) : null;
+
   const formatCurrency = (amount: number) => {
     if (amount >= 100000) {
       return `₹${(amount / 100000).toFixed(1)}L`;
@@ -119,11 +171,12 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
         <div className="bg-dark-card border border-dark-border rounded-lg p-4 shadow-lg">
           <p className="text-dark-primary font-medium mb-2">{label}</p>
           <div className="space-y-1">
-            <p className="text-dark-cta text-sm">ROAS: {payload.find((p: any) => p.dataKey === 'roas')?.value.toFixed(1)}x</p>
-            <p className="text-green-400 text-sm">AOV: ₹{payload.find((p: any) => p.dataKey === 'aov')?.value.toLocaleString()}</p>
+            <p className="text-dark-cta text-sm">ROAS: {payload.find((p: any) => p.dataKey === 'roas')?.value?.toFixed ? payload.find((p: any) => p.dataKey === 'roas')?.value.toFixed(1) + 'x' : (payload.find((p: any) => p.dataKey === 'roas')?.value ?? '-')}</p>
+            <p className="text-yellow-400 text-sm">ACC: {payload.find((p: any) => p.dataKey === 'acc')?.value != null ? `${payload.find((p: any) => p.dataKey === 'acc')?.value}%` : '-'}</p>
+            <p className="text-green-400 text-sm">AOV: ₹{payload.find((p: any) => p.dataKey === 'aov')?.value?.toLocaleString ? payload.find((p: any) => p.dataKey === 'aov')?.value.toLocaleString() : (payload.find((p: any) => p.dataKey === 'aov')?.value ?? '-')}</p>
             <p className="text-blue-400 text-sm">Revenue: {formatCurrency(payload.find((p: any) => p.dataKey === 'revenue')?.value)}</p>
-            <p className="text-orange-400 text-sm">RTO: {payload.find((p: any) => p.dataKey === 'rto')?.value.toFixed(1)}%</p>
-            <p className="text-purple-400 text-sm">Sales: {payload.find((p: any) => p.dataKey === 'sales')?.value}</p>
+            <p className="text-orange-400 text-sm">RTO: {payload.find((p: any) => p.dataKey === 'rto')?.value != null ? `${payload.find((p: any) => p.dataKey === 'rto')?.value.toFixed(1)}%` : '-'}</p>
+            <p className="text-purple-400 text-sm">Sales: {payload.find((p: any) => p.dataKey === 'sales')?.value ?? '-'}</p>
           </div>
           {data.performance !== 'normal' && (
             <div className="mt-2 pt-2 border-t border-dark-border">
@@ -141,6 +194,12 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
     }
     return null;
   };
+
+  useEffect(() => {
+    // Replace with dynamic userId if available; keeping same placeholder used elsewhere
+    const userId = '68c900ac51647b3b7dbab556';
+    dispatch(fetchProductTrends({ userId, productId, interval: 'daily' }));
+  }, [dispatch, productId, timeRange]);
 
   return (
     <div className="p-6 space-y-6 bg-dark-bg min-h-screen">
@@ -173,7 +232,7 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
           </div>
           <div className="flex-1">
             <h2 className="text-xl font-semibold text-dark-primary mb-2">{product.name}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <div>
                 <p className="text-xs text-dark-secondary">Current ROAS</p>
                 <p className="font-bold text-dark-cta">{product.currentRoas}x</p>
@@ -193,6 +252,10 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
               <div>
                 <p className="text-xs text-dark-secondary">Orders</p>
                 <p className="font-bold text-purple-400">{product.currentOrders}</p>
+              </div>
+              <div>
+                <p className="text-xs text-dark-secondary">ACC</p>
+                <p className="font-bold text-dark-cta">{product.currentAcc != null ? `${product.currentAcc}%` : '—'}</p>
               </div>
             </div>
           </div>
@@ -251,7 +314,7 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
       </div>
 
       {/* Average Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card className="dark-card p-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="h-4 w-4 text-dark-cta" />
@@ -290,6 +353,13 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
             <span className="text-sm text-dark-secondary">Avg Sales</span>
           </div>
           <p className="text-xl font-bold text-purple-400">{avgMetrics.sales}</p>
+        </Card>
+        <Card className="dark-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Award className="h-4 w-4 text-dark-cta" />
+            <span className="text-sm text-dark-secondary">Avg ACC</span>
+          </div>
+          <p className="text-xl font-bold text-dark-cta">{avgAcc != null ? `${avgAcc.toFixed(1)}%` : '—'}</p>
         </Card>
       </div>
 
@@ -355,6 +425,14 @@ export function ProductTrendPage({ productId, onBack }: ProductTrendPageProps) {
                 strokeWidth={2}
                 dot={{ fill: '#3B82F6', strokeWidth: 2, r: 3 }}
                 name="ROAS"
+              />
+              <Line
+                type="monotone"
+                dataKey="acc"
+                stroke="#F59E0B"
+                strokeWidth={2}
+                dot={{ fill: '#F59E0B', strokeWidth: 2, r: 3 }}
+                name="ACC (%)"
               />
               <Line 
                 type="monotone" 

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import axios from '../../../axiosConfig';
 
 // Types
 type Product = {
@@ -43,6 +43,7 @@ type CatalogState = {
   totalValues: number;
   totalPages: number;
   currentPage: number;
+  productTrends: Record<string, any>;
 };
 
 const initialState: CatalogState = {
@@ -54,6 +55,7 @@ const initialState: CatalogState = {
   totalValues: 0,
   totalPages: 0,
   currentPage: 1,
+  productTrends: {},
 };
 
 export const fetchCatalogDashboard = createAsyncThunk(
@@ -73,6 +75,15 @@ export const fetchCatalogProducts = createAsyncThunk(
       `http://localhost:3000/api/products-roas/products-roas?userId=${userId}&page=${page}`
     );
     return res.data;
+  }
+);
+
+export const fetchProductTrends = createAsyncThunk(
+  'catalog/fetchProductTrends',
+  async ({ userId, productId, interval }: { userId: string; productId: number; interval: string }) => {
+    const url = `/products-roas/product-trends`;
+    const res = await axios.get(url, { params: { userId, productId, interval } });
+    return { productId, data: res.data };
   }
 );
 
@@ -114,6 +125,22 @@ const catalogSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch products';
       });
+      
+      // Product trends
+      builder
+        .addCase(fetchProductTrends.pending, (state) => {
+          state.loading = true;
+          state.error = null;
+        })
+        .addCase(fetchProductTrends.fulfilled, (state, action) => {
+          state.loading = false;
+          const pid = String(action.payload.productId);
+          state.productTrends[pid] = action.payload.data;
+        })
+        .addCase(fetchProductTrends.rejected, (state, action) => {
+          state.loading = false;
+          state.error = action.error.message || 'Failed to fetch product trends';
+        });
   },
 });
 

@@ -27,6 +27,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { fetchProductTrends } from '../../store/slices/catalogSlice';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "../ui/dropdown-menu";
 
 type ViewMode = 'grid' | 'table';
@@ -134,8 +135,10 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
 
   const ProductCard = ({ product }: { product: any }) => {
     const performanceTags = getPerformanceTags(product);
-    
+
     const handleViewTrend = () => {
+      // Dispatch product trends fetch and then navigate to trend view
+      dispatch(fetchProductTrends({ userId, productId: product.productId, interval: 'daily' }));
       onNavigateToTrend?.(product.productId);
     };
     
@@ -214,6 +217,15 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
               </div>
               <div className="text-lg font-bold text-dark-primary">
                 {product.quantitySold}
+              </div>
+            </div>
+
+            <div className="p-3 bg-dark-hover rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-dark-secondary">ACC</span>
+              </div>
+              <div className={`text-lg font-bold ${product.acc != null && product.acc >= 90 ? 'text-dark-positive' : product.acc != null && product.acc >= 75 ? 'text-dark-cta' : 'text-dark-negative'}`}>
+                {product.acc != null ? `${product.acc}%` : '-'}
               </div>
             </div>
           </div>
@@ -301,6 +313,11 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
           <div className="font-medium text-dark-primary">{product.quantitySold}</div>
         </td>
         <td className="py-4 px-6">
+          <div className={`font-bold ${product.acc != null && product.acc >= 90 ? 'text-dark-positive' : product.acc != null && product.acc >= 75 ? 'text-dark-cta' : 'text-dark-negative'}`}>
+            {product.acc != null ? `${product.acc}%` : '-'}
+          </div>
+        </td>
+        <td className="py-4 px-6">
           <div className="flex items-center gap-2">
             <span className="font-medium text-dark-primary">₹{product.quantitySold ? Math.round(product.revenue / product.quantitySold).toLocaleString() : '0'}</span>
             {product.revenue > 0 ? (
@@ -345,7 +362,7 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <Card className="dark-card p-6">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -364,6 +381,15 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
             </div>
             <p className="text-2xl font-bold text-dark-primary">{cards?.avgRoas ?? 0}x</p>
             {/* <p className="text-xs text-dark-positive">+0.3x from last month</p> */}
+          </div>
+        </Card>
+        <Card className="dark-card p-6">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-dark-secondary">Avg ACC</p>
+              <Award className="h-4 w-4 text-dark-cta" />
+            </div>
+            <p className="text-2xl font-bold text-dark-primary">{cards?.avgAcc != null ? `${cards.avgAcc}%` : '—'}</p>
           </div>
         </Card>
         <Card className="dark-card p-6">
@@ -694,6 +720,7 @@ export function CatalogPage({ onNavigateToTrend }: { onNavigateToTrend?: (produc
                   <th className="text-left py-4 px-6 text-dark-primary font-medium">RTO</th>
                   <th className="text-left py-4 px-6 text-dark-primary font-medium">Net Sales</th>
                   <th className="text-left py-4 px-6 text-dark-primary font-medium">Orders</th>
+                  <th className="text-left py-4 px-6 text-dark-primary font-medium">ACC</th>
                   <th className="text-left py-4 px-6 text-dark-primary font-medium">AOV</th>
                 </tr>
               </thead>
