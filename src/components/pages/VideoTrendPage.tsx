@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -20,6 +20,8 @@ import {
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchVideoTrend } from '../../store/slices/videoSlice';
 
 interface VideoTrendPageProps {
   videoId: number;
@@ -30,6 +32,8 @@ type TimeRange = '7d' | '30d' | '90d';
 
 export function VideoTrendPage({ videoId, onBack }: VideoTrendPageProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const dispatch = useAppDispatch();
+  const trendEntry = useAppSelector((state) => (state as any).video?.trends?.[String(videoId)]);
 
   // Mock video data - in real app this would be fetched based on videoId
   const video = {
@@ -94,7 +98,47 @@ export function VideoTrendPage({ videoId, onBack }: VideoTrendPageProps) {
     }
   };
 
-  const trendData = generateTrendData(getDaysFromTimeRange(timeRange));
+  useEffect(() => {
+    // fetch trend for this adId using current timeRange
+    const count = getDaysFromTimeRange(timeRange);
+    dispatch(fetchVideoTrend({ adId: String(videoId), userId: '68c900ac51647b3b7dbab556', period: 'daily', count }));
+  }, [dispatch, videoId, timeRange]);
+
+  const mapApiSeriesToTrendData = (series: any[], meta: any) => {
+    const avgHook = meta?.avg_hook_rate ?? (series.reduce((s, i) => s + (i.hook_rate || 0), 0) / Math.max(1, series.length));
+    return series.map((item: any) => {
+      const hook = item.hook_rate ?? 0;
+      const isHighPerformance = hook > (avgHook * 1.05);
+      const isLowPerformance = hook < (avgHook * 0.95);
+      return {
+        date: new Date(item.period).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        fullDate: item.period,
+        roas: item.roas ?? meta?.avg_roas ?? 0,
+        hookRate: hook,
+        revenue: item.revenue ?? 0,
+        rto: item.rto ?? 0,
+        frequency: item.frequency ?? 0,
+        sales: item.purchase ?? 0,
+        isHighPerformance,
+        isLowPerformance,
+        performance: isHighPerformance ? 'high' : isLowPerformance ? 'low' : 'normal'
+      };
+    });
+  };
+
+  const trendData = (trendEntry && trendEntry.data && trendEntry.data.length)
+    ? mapApiSeriesToTrendData(trendEntry.data, trendEntry.meta)
+    : generateTrendData(getDaysFromTimeRange(timeRange));
+
+  if (trendEntry?.loading) {
+    return (
+      <div className="p-6">
+        <Card className="dark-card p-6">
+          <div>Loading trend...</div>
+        </Card>
+      </div>
+    );
+  }
 
   // Calculate performance insights
   const highPerformanceDays = trendData.filter(d => d.isHighPerformance).length;
@@ -109,6 +153,33 @@ export function VideoTrendPage({ videoId, onBack }: VideoTrendPageProps) {
     rto: (trendData.reduce((sum, d) => sum + d.rto, 0) / trendData.length).toFixed(1),
     frequency: (trendData.reduce((sum, d) => sum + d.frequency, 0) / trendData.length).toFixed(1),
     sales: Math.round(trendData.reduce((sum, d) => sum + d.sales, 0) / trendData.length)
+  };
+
+  // Build video display object from API meta when available
+  const videoDisplay = trendEntry?.meta ? {
+    id: videoId,
+    name: trendEntry.meta.ad_name || `Ad ${videoId}`,
+    thumbnail: trendEntry.meta.thumbnail_url || trendEntry.meta.image_url || '',
+    duration: (trendEntry.meta as any)?.duration || '0:30',
+    currentRoas: (trendEntry.meta.avg_roas ?? Number(avgMetrics.roas)) || 0,
+    currentHookRate: (trendEntry.meta.avg_hook_rate ?? Number(avgMetrics.hookRate)) || 0,
+    currentRevenue: (trendEntry.meta as any)?.totals?.spend ? (trendEntry.meta as any).totals.spend : avgMetrics.revenue,
+    currentRto: ((trendEntry.meta as any)?.totals?.rto ?? Number(avgMetrics.rto)) || 0,
+    currentFrequency: ((trendEntry.meta as any)?.totals?.frequency ?? Number(avgMetrics.frequency)) || 0,
+    currentSales: (trendEntry.meta as any)?.totals?.purchase ?? avgMetrics.sales,
+    website: (trendEntry.meta as any)?.website_url || ''
+  } : {
+    id: videoId,
+    name: "Headphones Lifestyle Ad",
+    thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop",
+    duration: "0:30",
+    currentRoas: 5.8,
+    currentHookRate: 12.4,
+    currentRevenue: 107300,
+    currentRto: 8,
+    currentFrequency: 2.4,
+    currentSales: 43,
+    website: ''
   };
 
   const formatCurrency = (amount: number) => {
@@ -173,43 +244,43 @@ export function VideoTrendPage({ videoId, onBack }: VideoTrendPageProps) {
         <div className="flex items-center gap-6">
           <div className="relative">
             <ImageWithFallback
-              src={video.thumbnail}
-              alt={video.name}
+              src={videoDisplay.thumbnail}
+              alt={videoDisplay.name}
               className="w-32 h-24 object-cover rounded-lg"
             />
             <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
               <Play className="h-6 w-6 text-white" fill="white" />
             </div>
             <Badge className="absolute bottom-2 right-2 bg-black/70 text-white border-none text-xs">
-              {video.duration}
+              {videoDisplay.duration}
             </Badge>
           </div>
           <div className="flex-1">
-            <h2 className="text-xl font-semibold text-dark-primary mb-2">{video.name}</h2>
+            <h2 className="text-xl font-semibold text-dark-primary mb-2">{videoDisplay.name}</h2>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
               <div>
                 <p className="text-xs text-dark-secondary">Current ROAS</p>
-                <p className="font-bold text-dark-cta">{video.currentRoas}x</p>
+                <p className="font-bold text-dark-cta">{videoDisplay.currentRoas}x</p>
               </div>
               <div>
                 <p className="text-xs text-dark-secondary">Hook Rate</p>
-                <p className="font-bold text-green-400">{video.currentHookRate}%</p>
+                <p className="font-bold text-green-400">{videoDisplay.currentHookRate}%</p>
               </div>
               <div>
                 <p className="text-xs text-dark-secondary">Revenue</p>
-                <p className="font-bold text-blue-400">{formatCurrency(video.currentRevenue)}</p>
+                <p className="font-bold text-blue-400">{formatCurrency(Number(videoDisplay.currentRevenue))}</p>
               </div>
               <div>
                 <p className="text-xs text-dark-secondary">RTO</p>
-                <p className="font-bold text-orange-400">{video.currentRto}%</p>
+                <p className="font-bold text-orange-400">{videoDisplay.currentRto}%</p>
               </div>
               <div>
                 <p className="text-xs text-dark-secondary">Frequency</p>
-                <p className="font-bold text-purple-400">{video.currentFrequency}</p>
+                <p className="font-bold text-purple-400">{videoDisplay.currentFrequency}</p>
               </div>
               <div>
                 <p className="text-xs text-dark-secondary">Sales</p>
-                <p className="font-bold text-pink-400">{video.currentSales}</p>
+                <p className="font-bold text-pink-400">{videoDisplay.currentSales}</p>
               </div>
             </div>
           </div>

@@ -49,6 +49,53 @@ type VideoState = {
     currency: string;
     ads: VideoItem[];
   }>;
+  trends: Record<
+    string,
+    {
+      loading: boolean;
+      error: string | null;
+      data: Array<{
+        period: string;
+        impressions?: number;
+        video_3sec_views?: number;
+        hook_rate?: number;
+        clicks?: number;
+        spend?: number;
+        reach?: number;
+        ctr?: number;
+        cpm?: number;
+        add_to_cart?: number;
+        purchase?: number;
+        frequency?: number;
+      }>;
+      meta: {
+        ad_id: string;
+        ad_name?: string;
+        account_id?: string;
+        account_name?: string;
+        thumbnail_url?: string | null;
+        image_url?: string | null;
+        website_url?: string | null;
+        ad_status?: string | null;
+        ad_created_time?: string | null;
+        ad_updated_time?: string | null;
+        totals?: {
+          impressions?: number;
+          spend?: number;
+          clicks?: number;
+          video_3sec_views?: number;
+          reach?: number;
+          add_to_cart?: number;
+          purchase?: number;
+        } | null;
+        currency?: string;
+        period?: string;
+        count?: number;
+        avg_roas?: number;
+        avg_hook_rate?: number;
+      } | null;
+    }
+  >;
 };
 
 const initialState: VideoState = {
@@ -60,6 +107,7 @@ const initialState: VideoState = {
   lowHook: [],
   summary: null,
   accounts: [],
+  trends: {},
 };
 
 export const fetchBestVideoAds = createAsyncThunk(
@@ -77,6 +125,16 @@ export const fetchVideoAnalytics = createAsyncThunk(
     const url = `/meta-ads/video-analytics`;
     const res = await axios.get<VideoAnalyticsResponse>(url, { params: { userId } });
     console.log('fetchVideoAnalytics response:', res.data);
+    return res.data;
+  }
+);
+
+export const fetchVideoTrend = createAsyncThunk(
+  'video/fetchVideoTrend',
+  async (params: { adId: string; userId: string; period?: string; count?: number }) => {
+    const { adId, userId, period = 'daily', count = 30 } = params;
+    const url = `/meta-ads/video-trends/ad/${adId}`;
+    const res = await axios.get<any>(url, { params: { userId, period, count } });
     return res.data;
   }
 );
@@ -161,6 +219,50 @@ const videoSlice = createSlice({
       .addCase(fetchVideoAnalytics.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to load video analytics';
+      });
+    // Video trend (per-ad series)
+    builder
+      .addCase(fetchVideoTrend.pending, (state, action) => {
+        const adId = (action.meta.arg as any)?.adId;
+        if (!adId) return;
+        state.trends[adId] = state.trends[adId] || { loading: true, error: null, data: [], meta: null };
+        state.trends[adId].loading = true;
+        state.trends[adId].error = null;
+      })
+      .addCase(fetchVideoTrend.fulfilled, (state, action: PayloadAction<any>) => {
+        const payload: any = action.payload;
+        const adId = payload?.ad_id || (action.meta.arg as any)?.adId;
+        if (!adId) return;
+        state.trends[adId] = {
+          loading: false,
+          error: null,
+          data: Array.isArray(payload?.series) ? payload.series : [],
+          meta: {
+            ad_id: payload?.ad_id || adId,
+            ad_name: payload?.ad_name,
+            account_id: payload?.account_id,
+            account_name: payload?.account_name,
+            thumbnail_url: payload?.thumbnail_url || payload?.image_url || null,
+            image_url: payload?.image_url || null,
+            website_url: payload?.website_url || null,
+            ad_status: payload?.ad_status || null,
+            ad_created_time: payload?.ad_created_time || null,
+            ad_updated_time: payload?.ad_updated_time || null,
+            totals: payload?.totals || null,
+            currency: payload?.currency,
+            period: payload?.period,
+            count: payload?.count,
+            avg_roas: payload?.avg_roas,
+            avg_hook_rate: payload?.avg_hook_rate,
+          },
+        };
+      })
+      .addCase(fetchVideoTrend.rejected, (state, action) => {
+        const adId = (action.meta.arg as any)?.adId;
+        if (!adId) return;
+        state.trends[adId] = state.trends[adId] || { loading: false, error: null, data: [], meta: null };
+        state.trends[adId].loading = false;
+        state.trends[adId].error = action.error.message || 'Failed to load video trend';
       });
   },
 });
