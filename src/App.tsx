@@ -4,7 +4,8 @@ import { LoginFlow } from "./components/LoginFlow";
 
 import SignupPage from "./components/SignupPage";
 import ConnectPage from "./components/ConnectPage";
-import {MainApp} from "./components/MainApp";
+import { MainApp } from "./components/MainApp";
+import SelectMetaAccountPage from "./components/pages/SelectMetaAccountPage";
 
 // Wrapper for LandingPage to navigate to /login
 function LandingPageWithNav() {
@@ -24,6 +25,7 @@ function MainAppWithNav() {
   return <MainApp onLogout={() => navigate("/")} />;
 }
 
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -31,6 +33,7 @@ export default function App() {
         <Route path="/" element={<LandingPageWithNav />} />
         <Route path="/login" element={<LoginFlowWithNav />} />
         <Route path="/connect" element={<ConnectPage />} />
+        <Route path="/connect/meta-ads/select-account" element={<SelectMetaAccountPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/app/*" element={<MainAppWithNav />} />
       </Routes>

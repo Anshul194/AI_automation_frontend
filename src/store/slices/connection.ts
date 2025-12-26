@@ -27,12 +27,17 @@ export const fetchShopifyConnectUrl = async (userId: string, shopDomain: string)
 };
 
 // Meta Ads Connect
+// Meta Ads Connect
 export const fetchMetaConnectUrl = async (userId: string, redirectUrl: string): Promise<string> => {
   try {
-    const redirectUrl = "https://ai-automation1-6o3m.onrender.com/api/v1/integrations/meta-ads/callback";
     const response = await axiosInstance.post(
-      `/v1/integrations/meta-ads/connect?userId=${userId}&redirectUrl=${encodeURIComponent(redirectUrl)}`,
+      `/v1/integrations/meta-ads/connect`,
+      {},
       {
+        params: {
+          userId,
+          redirectUrl
+        },
         headers: {
           'Content-Type': 'application/json',
         },
@@ -45,6 +50,21 @@ export const fetchMetaConnectUrl = async (userId: string, redirectUrl: string): 
     return response.data.url || response.data.redirectUrl || response.data;
   } catch (error: any) {
     throw error.response?.data?.message || error.message || 'Failed to fetch Meta connect URL';
+  }
+};
+
+export const completeMetaIntegration = async (userId: string, accountId: string, accessToken?: string) => {
+  try {
+    const payload: { userId: string; accountId: string; accessToken?: string } = {
+      userId,
+      accountId,
+    };
+    if (accessToken) payload.accessToken = accessToken;
+
+    const response = await axiosInstance.post('/v1/integrations/meta-ads/complete', payload);
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data?.message || error.message || 'Failed to complete Meta integration';
   }
 };
 
@@ -111,6 +131,15 @@ const connectionSlice = createSlice({
     },
   },
 });
+
+
+export interface MetaAdAccount {
+  id: string;
+  name: string;
+  accountId: string;
+  currency?: string;
+  timezone?: string;
+}
 
 export const { setAuthUrl, setTokens, setLoading, setError, resetConnectionState } = connectionSlice.actions;
 export default connectionSlice.reducer;
